@@ -88,6 +88,13 @@ WeatherGlass/
   <img src="https://github.com/user-attachments/assets/b0220496-1c0c-497b-80cb-2d324d323298" width="300" />
 </p>
 
+## 🙌 Благодарности
+
+- [Lottie](https://airbnb.io/lottie/#/) от Airbnb за потрясающие анимации
+- [OpenWeatherMap](https://openweathermap.org/) за доступ к погодным данным
+- [React Native](https://reactnative.dev/) Team за платформу для разработки
+- [Code With Nomi]([https://reactnative.dev/](https://youtu.be/953vyZMO4cM?feature=shared)) за обучающее видео и идею дизайна приложения
+
 ## 📄 Лицензия
 
 MIT License
