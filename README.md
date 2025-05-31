@@ -82,12 +82,11 @@ WeatherGlass/
 
 ## 📷 Скриншоты
 
-<p align="center">
-![photo_2025-05-31_11-45-01](https://github.com/user-attachments/assets/d5a75819-d7f7-4277-987c-4d2d4adfa2e0)
-![photo_2025-05-31_11-45-01 (2)](https://github.com/user-attachments/assets/452bcf75-49da-4e97-b802-3256f4222863)
-![photo_2025-05-31_11-45-02](https://github.com/user-attachments/assets/19dc96e2-ad60-46a1-ac98-d1af5b921215)
-![photo_2025-05-31_11-45-02 (2)](https://github.com/user-attachments/assets/872ba964-c1d9-46f4-8e4c-9c856c46f17b)
-</p>
+![image](https://github.com/user-attachments/assets/4e60646d-0b1a-475d-b327-a560fe471365)
+![image](https://github.com/user-attachments/assets/c5fe1042-bd43-477b-903e-661d0bac03b2)
+![image](https://github.com/user-attachments/assets/f62fa3b2-d310-4c2a-9269-fb321ad86ac5)
+![image](https://github.com/user-attachments/assets/b0220496-1c0c-497b-80cb-2d324d323298)
+
 
 ## 📄 Лицензия
 
