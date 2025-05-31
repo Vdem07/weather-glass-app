@@ -80,7 +80,6 @@ WeatherGlass/
 └── App.js
 ```
 
----
 ## 📷 Скриншоты
 
 <p align="center">
@@ -90,7 +89,7 @@ WeatherGlass/
 ![photo_2025-05-31_11-45-02 (2)](https://github.com/user-attachments/assets/872ba964-c1d9-46f4-8e4c-9c856c46f17b)
 
 </p>
----
+```
 ## 📄 Лицензия
 
 MIT License
