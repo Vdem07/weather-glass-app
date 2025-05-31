@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "WeatherGlassApp",
+    "name": "Погода",
     "slug": "WeatherGlassApp",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -20,10 +20,22 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.vadim23dem.weatherapp",
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "d93bb5b4-2726-4c6a-a998-9d6baa7d0290"
+      }
+    },
+    "owner": "vadim23dem"
   }
 }
