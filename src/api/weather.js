@@ -32,45 +32,32 @@ export const getHourlyForecast = async (lat, lon, lang = 'ru', units = 'metric')
 };
 
 export const getDailyForecast = async (lat, lon, lang = 'ru', units = 'metric') => {
-    const res = await axios.get(`${BASE_URL}/forecast`, {
-      params: {
-        lat,
-        lon,
-        appid: API_KEY,
-        lang,
-        units,
-      },
-    });
-  
-    const list = res.data.list;
-  
-    // Группируем по дате (без времени)
-    const dailyMap = {};
-  
-    list.forEach(item => {
-      const date = item.dt_txt.split(' ')[0];
-      if (!dailyMap[date]) {
-        dailyMap[date] = [];
-      }
-      dailyMap[date].push(item);
-    });
-  
-    // Берем среднее по температуре и первую погоду для описания
-    const grouped = Object.keys(dailyMap).map(date => {
-      const items = dailyMap[date];
-      const temps = items.map(i => i.main.temp);
-      const avgTemp = temps.reduce((a, b) => a + b, 0) / temps.length;
-  
-      return {
-        date,
-        temp: avgTemp,
-        description: items[0].weather[0].description,
-        main: items[0].weather[0].main,
-      };
-    });
-  
-    return grouped;
-  };
+  const res = await axios.get(`${BASE_URL}/forecast`, {
+    params: {
+      lat,
+      lon,
+      appid: API_KEY,
+      lang,
+      units,
+    },
+  });
+
+  const list = res.data.list;
+
+  // Фильтруем прогнозы, выбирая только записи на 12:00 каждого дня
+  const dailyForecast = list.filter(item => item.dt_txt.includes('12:00:00')).slice(0, 5);
+
+  // Преобразуем данные в нужный формат
+  const formatted = dailyForecast.map(item => ({
+    date: item.dt_txt.split(' ')[0],
+    temp: item.main.temp,
+    description: item.weather[0].description,
+    main: item.weather[0].main,
+  }));
+
+  return formatted;
+};
+
 
   export const searchCityByName = async (query, limit = 5) => {
     const res = await axios.get(`https://api.openweathermap.org/geo/1.0/direct`, {
