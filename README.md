@@ -93,7 +93,7 @@ WeatherGlass/
 - [Lottie](https://airbnb.io/lottie/#/) от Airbnb за потрясающие анимации
 - [OpenWeatherMap](https://openweathermap.org/) за доступ к погодным данным
 - [React Native](https://reactnative.dev/) Team за платформу для разработки
-- [Code With Nomi]([https://reactnative.dev/](https://youtu.be/953vyZMO4cM?feature=shared)) за обучающее видео и идею дизайна приложения
+- [Code With Nomi](https://www.youtube.com/watch?v=953vyZMO4cM) за обучающее видео и идею дизайна приложения
 
 ## 📄 Лицензия
 
