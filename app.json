@@ -2,18 +2,26 @@
   "expo": {
     "name": "Погода",
     "slug": "WeatherGlassApp",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#ffffff",
+      "dark": {
+        "image": "./assets/splash-icon-dark.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#1e1e1e"
+      }
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "UILaunchStoryboardName": "SplashScreen"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -26,7 +34,17 @@
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE"
-      ]
+      ],
+      "splash": {
+        "image": "./assets/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#ffffff",
+        "dark": {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#1e1e1e"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -36,6 +54,9 @@
         "projectId": "d93bb5b4-2726-4c6a-a998-9d6baa7d0290"
       }
     },
-    "owner": "vadim23dem"
+    "owner": "vadim23dem",
+    "plugins": [
+      "expo-splash-screen"
+    ]
   }
 }
