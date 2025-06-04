@@ -8,6 +8,8 @@ import {
   Alert,
   TextInput,
   ActivityIndicator,
+  ScrollView,
+  Dimensions,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { BlurView } from 'expo-blur';
@@ -23,12 +25,20 @@ import ruLocale from 'i18n-iso-countries/langs/ru.json';
 
 countries.registerLocale(ruLocale);
 
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
 export default function WelcomeScreen({ navigation }) {
   const [step, setStep] = useState('welcome'); // 'welcome', 'manual', 'geo'
   const [searchCity, setSearchCity] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const { isDark } = useThemeContext();
+
+  // Адаптивные размеры
+  const isSmallScreen = screenHeight < 700;
+  const isMediumScreen = screenHeight >= 700 && screenHeight < 800;
+  const isLargeScreen = screenHeight >= 800;
+  const isTablet = screenWidth > 600;
 
   const backgroundImage = isDark
     ? require('../assets/backgrounds/bg-blobs.png')
@@ -40,15 +50,11 @@ export default function WelcomeScreen({ navigation }) {
   const placeholderColor = isDark ? 'lightgray' : '#999';
   const iconColor = isDark ? '#fff' : '#333';
 
-  // Анимация для приветственного экрана
-  const welcomeAnimation = require('../assets/lottie/weather-welcome.json'); // Предполагаем, что у вас есть анимация
-
   const handleGeolocation = async () => {
     setStep('geo');
     setLoading(true);
 
     try {
-      // Запрашиваем разрешение на геолокацию
       const { status } = await Location.requestForegroundPermissionsAsync();
       
       if (status !== 'granted') {
@@ -75,7 +81,6 @@ export default function WelcomeScreen({ navigation }) {
         return;
       }
 
-      // Получаем текущее местоположение
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
@@ -85,12 +90,10 @@ export default function WelcomeScreen({ navigation }) {
         lon: location.coords.longitude,
       };
 
-      // Сохраняем координаты и настройки
       await AsyncStorage.setItem('savedCity', JSON.stringify(coords));
       await AsyncStorage.setItem('useGeo', 'true');
       await AsyncStorage.setItem('isFirstLaunch', 'false');
 
-      // Переходим на главный экран
       navigation.replace('Home');
 
     } catch (error) {
@@ -126,12 +129,10 @@ export default function WelcomeScreen({ navigation }) {
         lon: cityData.lon,
       };
 
-      // Сохраняем выбранный город и настройки
       await AsyncStorage.setItem('savedCity', JSON.stringify(coords));
       await AsyncStorage.setItem('useGeo', 'false');
       await AsyncStorage.setItem('isFirstLaunch', 'false');
 
-      // Переходим на главный экран
       navigation.replace('Home');
 
     } catch (error) {
@@ -146,7 +147,7 @@ export default function WelcomeScreen({ navigation }) {
     if (text.length > 2) {
       try {
         const results = await searchCityByName(text);
-        setSearchResults(results.slice(0, 5)); // Ограничиваем до 5 результатов
+        setSearchResults(results.slice(0, isSmallScreen ? 4 : 5));
       } catch (error) {
         console.error('Ошибка поиска городов:', error);
         setSearchResults([]);
@@ -167,8 +168,16 @@ export default function WelcomeScreen({ navigation }) {
         <StatusBar style={isDark ? 'light' : 'dark'} />
         <BlurView intensity={50} tint={isDark ? 'dark' : 'light'} style={styles.blurOverlay}>
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color={textColor} />
-            <Text style={[styles.loadingText, { color: textColor }]}>
+            <ActivityIndicator 
+              size="large" 
+              color={textColor} 
+              style={{ transform: [{ scale: isTablet ? 1.5 : 1 }] }}
+            />
+            <Text style={[styles.loadingText, { 
+              color: textColor,
+              fontSize: isTablet ? 20 : (isSmallScreen ? 14 : 16),
+              marginTop: isTablet ? 20 : 15
+            }]}>
               {step === 'geo' ? 'Определение местоположения...' : 'Настройка приложения...'}
             </Text>
           </View>
@@ -186,72 +195,152 @@ export default function WelcomeScreen({ navigation }) {
     >
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <BlurView intensity={50} tint={isDark ? 'dark' : 'light'} style={styles.blurOverlay}>
-        <View style={styles.container}>
+        <ScrollView 
+          style={styles.scrollContainer}
+          contentContainerStyle={[
+            styles.container,
+            {
+              paddingTop: isSmallScreen ? 40 : (isTablet ? 80 : 60),
+              paddingHorizontal: isTablet ? 40 : 20,
+              paddingBottom: isSmallScreen ? 20 : 40
+            }
+          ]}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
           
           {step === 'welcome' && (
             <>
               {/* Приветственная анимация */}
-              <View style={styles.animationContainer}>
+              <View style={[styles.animationContainer, {
+                marginTop: isSmallScreen ? 20 : (isTablet ? 60 : 40),
+                marginBottom: isSmallScreen ? 30 : (isTablet ? 60 : 40)
+              }]}>
                 <LottieView
                   source={require('../assets/lottie/weather-welcome.json')}
                   autoPlay
                   loop
-                  style={styles.welcomeAnimation}
+                  style={[styles.welcomeAnimation, {
+                    width: isTablet ? 300 : (isSmallScreen ? 150 : 200),
+                    height: isTablet ? 300 : (isSmallScreen ? 150 : 200)
+                  }]}
                 />
               </View>
 
               {/* Заголовок */}
-              <View style={styles.welcomeHeader}>
-                <Text style={[styles.welcomeTitle, { color: textColor }]}>
+              <View style={[styles.welcomeHeader, {
+                marginBottom: isSmallScreen ? 30 : (isTablet ? 70 : 50)
+              }]}>
+                <Text style={[styles.welcomeTitle, { 
+                  color: textColor,
+                  fontSize: isTablet ? 42 : (isSmallScreen ? 26 : 32),
+                  marginBottom: isSmallScreen ? 8 : 10
+                }]}>
                   Добро пожаловать!
                 </Text>
-                <Text style={[styles.welcomeSubtitle, { color: secondaryTextColor }]}>
+                <Text style={[styles.welcomeSubtitle, { 
+                  color: secondaryTextColor,
+                  fontSize: isTablet ? 20 : (isSmallScreen ? 14 : 16),
+                  lineHeight: isTablet ? 28 : (isSmallScreen ? 20 : 22),
+                  paddingHorizontal: isTablet ? 40 : 20
+                }]}>
                   Настройте способ определения местоположения для получения точного прогноза погоды
                 </Text>
               </View>
 
               {/* Кнопки выбора */}
-              <View style={styles.optionsContainer}>
+              <View style={[styles.optionsContainer, {
+                gap: isSmallScreen ? 12 : 15,
+                maxWidth: isTablet ? 500 : '100%',
+                alignSelf: 'center',
+                width: '100%'
+              }]}>
                 <TouchableOpacity
                   style={[
                     styles.optionButton,
-                    { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+                    { 
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                      padding: isTablet ? 25 : (isSmallScreen ? 15 : 20),
+                      borderRadius: isTablet ? 20 : 16
+                    }
                   ]}
                   onPress={handleGeolocation}
                 >
-                  <View style={styles.optionIcon}>
-                    <Ionicons name="location" size={30} color="#4CAF50" />
+                  <View style={[styles.optionIcon, {
+                    width: isTablet ? 60 : (isSmallScreen ? 40 : 50),
+                    height: isTablet ? 60 : (isSmallScreen ? 40 : 50),
+                    borderRadius: isTablet ? 30 : (isSmallScreen ? 20 : 25)
+                  }]}>
+                    <Ionicons 
+                      name="location" 
+                      size={isTablet ? 36 : (isSmallScreen ? 24 : 30)} 
+                      color="#4CAF50" 
+                    />
                   </View>
-                  <View style={styles.optionText}>
-                    <Text style={[styles.optionTitle, { color: textColor }]}>
+                  <View style={[styles.optionText, { gap: isSmallScreen ? 2 : 4 }]}>
+                    <Text style={[styles.optionTitle, { 
+                      color: textColor,
+                      fontSize: isTablet ? 22 : (isSmallScreen ? 16 : 18)
+                    }]}>
                       Автоматически
                     </Text>
-                    <Text style={[styles.optionDescription, { color: secondaryTextColor }]}>
+                    <Text style={[styles.optionDescription, { 
+                      color: secondaryTextColor,
+                      fontSize: isTablet ? 16 : (isSmallScreen ? 12 : 14),
+                      lineHeight: isTablet ? 20 : 18
+                    }]}>
                       Использовать геолокацию устройства
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color={secondaryTextColor} />
+                  <Ionicons 
+                    name="chevron-forward" 
+                    size={isTablet ? 24 : 20} 
+                    color={secondaryTextColor} 
+                  />
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={[
                     styles.optionButton,
-                    { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+                    { 
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                      padding: isTablet ? 25 : (isSmallScreen ? 15 : 20),
+                      borderRadius: isTablet ? 20 : 16
+                    }
                   ]}
                   onPress={handleManualSelection}
                 >
-                  <View style={styles.optionIcon}>
-                    <Ionicons name="search" size={30} color="#2196F3" />
+                  <View style={[styles.optionIcon, {
+                    width: isTablet ? 60 : (isSmallScreen ? 40 : 50),
+                    height: isTablet ? 60 : (isSmallScreen ? 40 : 50),
+                    borderRadius: isTablet ? 30 : (isSmallScreen ? 20 : 25)
+                  }]}>
+                    <Ionicons 
+                      name="search" 
+                      size={isTablet ? 36 : (isSmallScreen ? 24 : 30)} 
+                      color="#2196F3" 
+                    />
                   </View>
-                  <View style={styles.optionText}>
-                    <Text style={[styles.optionTitle, { color: textColor }]}>
+                  <View style={[styles.optionText, { gap: isSmallScreen ? 2 : 4 }]}>
+                    <Text style={[styles.optionTitle, { 
+                      color: textColor,
+                      fontSize: isTablet ? 22 : (isSmallScreen ? 16 : 18)
+                    }]}>
                       Выбрать город
                     </Text>
-                    <Text style={[styles.optionDescription, { color: secondaryTextColor }]}>
+                    <Text style={[styles.optionDescription, { 
+                      color: secondaryTextColor,
+                      fontSize: isTablet ? 16 : (isSmallScreen ? 12 : 14),
+                      lineHeight: isTablet ? 20 : 18
+                    }]}>
                       Найти и выбрать город вручную
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color={secondaryTextColor} />
+                  <Ionicons 
+                    name="chevron-forward" 
+                    size={isTablet ? 24 : 20} 
+                    color={secondaryTextColor} 
+                  />
                 </TouchableOpacity>
               </View>
             </>
@@ -260,14 +349,26 @@ export default function WelcomeScreen({ navigation }) {
           {step === 'manual' && (
             <>
               {/* Заголовок для ручного выбора */}
-              <View style={styles.manualHeader}>
+              <View style={[styles.manualHeader, {
+                marginBottom: isSmallScreen ? 20 : (isTablet ? 40 : 30)
+              }]}>
                 <TouchableOpacity
                   onPress={() => setStep('welcome')}
-                  style={styles.backButton}
+                  style={[styles.backButton, {
+                    padding: isTablet ? 12 : 8,
+                    marginRight: isTablet ? 15 : 10
+                  }]}
                 >
-                  <Ionicons name="chevron-back" size={24} color={textColor} />
+                  <Ionicons 
+                    name="chevron-back" 
+                    size={isTablet ? 28 : 24} 
+                    color={textColor} 
+                  />
                 </TouchableOpacity>
-                <Text style={[styles.manualTitle, { color: textColor }]}>
+                <Text style={[styles.manualTitle, { 
+                  color: textColor,
+                  fontSize: isTablet ? 32 : (isSmallScreen ? 20 : 24)
+                }]}>
                   Выберите город
                 </Text>
               </View>
@@ -277,16 +378,29 @@ export default function WelcomeScreen({ navigation }) {
                 intensity={0} 
                 style={[
                   styles.searchContainer,
-                  { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+                  { 
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                    padding: isTablet ? 20 : (isSmallScreen ? 12 : 15),
+                    borderRadius: isTablet ? 25 : 20,
+                    marginBottom: isSmallScreen ? 15 : 20
+                  }
                 ]}
               >
-                <Ionicons name="search" size={20} color={secondaryTextColor} />
+                <Ionicons 
+                  name="search" 
+                  size={isTablet ? 24 : 20} 
+                  color={secondaryTextColor} 
+                />
                 <TextInput
                   placeholder="Введите название города"
                   placeholderTextColor={placeholderColor}
                   value={searchCity}
                   onChangeText={searchCities}
-                  style={[styles.searchInput, { color: textColor }]}
+                  style={[styles.searchInput, { 
+                    color: textColor,
+                    fontSize: isTablet ? 20 : (isSmallScreen ? 14 : 16),
+                    marginLeft: isTablet ? 15 : 10
+                  }]}
                   autoFocus
                 />
               </BlurView>
@@ -295,40 +409,67 @@ export default function WelcomeScreen({ navigation }) {
               {searchResults.length > 0 && (
                 <View style={[
                   styles.resultsContainer,
-                  { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+                  { 
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                    borderRadius: isTablet ? 20 : 16,
+                    marginBottom: isSmallScreen ? 15 : 20,
+                    maxHeight: isSmallScreen ? 250 : (isTablet ? 400 : 300)
+                  }
                 ]}>
-                  {searchResults.map((item, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      onPress={() => handleCitySelect(item)}
-                      style={[
-                        styles.resultItem,
-                        { borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }
-                      ]}
-                    >
-                      <View style={styles.resultInfo}>
-                        <Text style={[styles.cityName, { color: textColor }]}>
-                          {item.local_names?.ru || item.name}
-                        </Text>
-                        <Text style={[styles.countryName, { color: secondaryTextColor }]}>
-                          {item.state ? `${item.state}, ` : ''}
-                          {countries.getName(item.country, 'ru') || item.country}
-                        </Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={16} color={secondaryTextColor} />
-                    </TouchableOpacity>
-                  ))}
+                  <ScrollView showsVerticalScrollIndicator={false}>
+                    {searchResults.map((item, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        onPress={() => handleCitySelect(item)}
+                        style={[
+                          styles.resultItem,
+                          { 
+                            borderBottomColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                            padding: isTablet ? 20 : (isSmallScreen ? 12 : 15),
+                            borderBottomWidth: index === searchResults.length - 1 ? 0 : 1
+                          }
+                        ]}
+                      >
+                        <View style={styles.resultInfo}>
+                          <Text style={[styles.cityName, { 
+                            color: textColor,
+                            fontSize: isTablet ? 20 : (isSmallScreen ? 14 : 16),
+                            marginBottom: isSmallScreen ? 1 : 2
+                          }]}>
+                            {item.local_names?.ru || item.name}
+                          </Text>
+                          <Text style={[styles.countryName, { 
+                            color: secondaryTextColor,
+                            fontSize: isTablet ? 16 : (isSmallScreen ? 12 : 14)
+                          }]}>
+                            {item.state ? `${item.state}, ` : ''}
+                            {countries.getName(item.country, 'ru') || item.country}
+                          </Text>
+                        </View>
+                        <Ionicons 
+                          name="chevron-forward" 
+                          size={isTablet ? 20 : 16} 
+                          color={secondaryTextColor} 
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
                 </View>
               )}
 
               {/* Подсказка */}
-              <Text style={[styles.hint, { color: secondaryTextColor }]}>
+              <Text style={[styles.hint, { 
+                color: secondaryTextColor,
+                fontSize: isTablet ? 16 : (isSmallScreen ? 12 : 14),
+                lineHeight: isTablet ? 22 : 20,
+                paddingHorizontal: isTablet ? 40 : 20
+              }]}>
                 Введите название города для поиска подходящих вариантов
               </Text>
             </>
           )}
 
-        </View>
+        </ScrollView>
       </BlurView>
     </ImageBackground>
   );
@@ -342,10 +483,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.2)',
   },
-  container: {
+  scrollContainer: {
     flex: 1,
-    paddingTop: 60,
-    paddingHorizontal: 20,
+  },
+  container: {
+    flexGrow: 1,
   },
   centered: {
     flex: 1,
@@ -353,115 +495,81 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 15,
-    fontSize: 16,
     textAlign: 'center',
+    fontWeight: '500',
   },
   animationContainer: {
     alignItems: 'center',
-    marginTop: 40,
-    marginBottom: 40,
   },
   welcomeAnimation: {
-    width: 200,
-    height: 200,
+    // Размеры задаются динамически
   },
   welcomeHeader: {
     alignItems: 'center',
-    marginBottom: 50,
   },
   welcomeTitle: {
-    fontSize: 32,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 10,
   },
   welcomeSubtitle: {
-    fontSize: 16,
     textAlign: 'center',
-    lineHeight: 22,
-    paddingHorizontal: 20,
   },
   optionsContainer: {
-    gap: 15,
+    // Настройки задаются динамически
   },
   optionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    borderRadius: 16,
-    gap: 15,
   },
   optionIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
     backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   optionText: {
     flex: 1,
+    marginLeft: 15,
   },
   optionTitle: {
-    fontSize: 18,
     fontWeight: '600',
-    marginBottom: 4,
   },
   optionDescription: {
-    fontSize: 14,
-    lineHeight: 18,
+    // Размеры задаются динамически
   },
   manualHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 30,
   },
   backButton: {
-    padding: 8,
-    marginRight: 10,
+    // Размеры задаются динамически
   },
   manualTitle: {
-    fontSize: 24,
     fontWeight: 'bold',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 5,
-    borderRadius: 30,
-    marginBottom: 20,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
   },
   resultsContainer: {
-    borderRadius: 16,
     overflow: 'hidden',
-    marginBottom: 20,
   },
   resultItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 15,
-    borderBottomWidth: 1,
   },
   resultInfo: {
     flex: 1,
   },
   cityName: {
-    fontSize: 16,
     fontWeight: '500',
-    marginBottom: 2,
   },
   countryName: {
-    fontSize: 14,
+    // Размеры задаются динамически
   },
   hint: {
-    fontSize: 14,
     textAlign: 'center',
-    lineHeight: 20,
-    paddingHorizontal: 20,
   },
 });
