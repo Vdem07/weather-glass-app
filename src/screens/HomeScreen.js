@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   ImageBackground,
   Alert,
-  Dimensions,
   ScrollView,
 } from 'react-native';
 import * as Location from 'expo-location';
@@ -28,8 +27,6 @@ import ruLocale from 'i18n-iso-countries/langs/ru.json';
 
 countries.registerLocale(ruLocale);
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-
 export default function HomeScreen({ navigation }) {
   const [weather, setWeather] = useState(null);
   const [forecast, setForecast] = useState([]);
@@ -39,7 +36,6 @@ export default function HomeScreen({ navigation }) {
     ? require('../assets/backgrounds/bg-blobs.png')
     : require('../assets/backgrounds/bg-blobs-white.png');
   const [hourlyForecast, setHourlyForecast] = useState([]);
-  const [activeTab, setActiveTab] = useState('daily');
   const [showSearch, setShowSearch] = useState(false);
   const [searchCity, setSearchCity] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -51,11 +47,6 @@ export default function HomeScreen({ navigation }) {
   const [windUnit, setWindUnit] = useState('m/s');
   const [pressureUnit, setPressureUnit] = useState('mmHg');
 
-  // Адаптивные размеры
-  const isSmallScreen = screenHeight < 700;
-  const isMediumScreen = screenHeight >= 700 && screenHeight < 800;
-  const isLargeScreen = screenHeight >= 800;
-
   // Цвета для адаптации под тему
   const textColor = isDark ? '#fff' : '#333';
   const secondaryTextColor = isDark ? '#aaa' : '#666';
@@ -66,63 +57,61 @@ export default function HomeScreen({ navigation }) {
   // состояния для toast уведомлений:
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
-  const [toastType, setToastType] = useState('info'); // 'info', 'warning', 'error'
+  const [toastType, setToastType] = useState('info');
 
-  // 2. Добавьте функцию для показа toast:
-const showToast = (message, type = 'info') => {
-  setToastMessage(message);
-  setToastType(type);
-  setToastVisible(true);
-  
-  // Автоматически скрываем через 3 секунды
-  setTimeout(() => {
-    setToastVisible(false);
-  }, 1000);
-};
+  // Toast функции
+  const showToast = (message, type = 'info') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+    
+    setTimeout(() => {
+      setToastVisible(false);
+    }, 1000);
+  };
 
-// 5. Добавьте вспомогательные функции:
-const getToastColor = (type, isDark) => {
-  const opacity = isDark ? 0.2 : 0.1;
-  switch (type) {
-    case 'warning':
-      return `rgba(255, 107, 53, ${opacity})`; // #FF6B35 с прозрачностью
-    case 'error':
-      return `rgba(244, 67, 54, ${opacity})`; // Красный с прозрачностью
-    case 'success':
-      return `rgba(76, 175, 80, ${opacity})`; // Зеленый с прозрачностью
-    case 'info':
-    default:
-      return `rgba(33, 150, 243, ${opacity})`; // Синий с прозрачностью
-  }
-};
+  const getToastColor = (type, isDark) => {
+    const opacity = isDark ? 0.2 : 0.1;
+    switch (type) {
+      case 'warning':
+        return `rgba(255, 107, 53, ${opacity})`;
+      case 'error':
+        return `rgba(244, 67, 54, ${opacity})`;
+      case 'success':
+        return `rgba(76, 175, 80, ${opacity})`;
+      case 'info':
+      default:
+        return `rgba(33, 150, 243, ${opacity})`;
+    }
+  };
 
-const getToastIconColor = (type) => {
-  switch (type) {
-    case 'warning':
-      return '#FF6B35'; // Тот же цвет как в офлайн индикаторе
-    case 'error':
-      return '#f44336'; // Красный
-    case 'success':
-      return '#4CAF50'; // Зеленый
-    case 'info':
-    default:
-      return '#2196F3'; // Синий
-  }
-};
+  const getToastIconColor = (type) => {
+    switch (type) {
+      case 'warning':
+        return '#FF6B35';
+      case 'error':
+        return '#f44336';
+      case 'success':
+        return '#4CAF50';
+      case 'info':
+      default:
+        return '#2196F3';
+    }
+  };
 
-const getToastIcon = (type) => {
-  switch (type) {
-    case 'warning':
-      return 'cloud-offline-outline';
-    case 'error':
-      return 'close-circle-outline';
-    case 'success':
-      return 'checkmark-circle-outline';
-    case 'info':
-    default:
-      return 'information-circle-outline';
-  }
-};
+  const getToastIcon = (type) => {
+    switch (type) {
+      case 'warning':
+        return 'cloud-offline-outline';
+      case 'error':
+        return 'close-circle-outline';
+      case 'success':
+        return 'checkmark-circle-outline';
+      case 'info':
+      default:
+        return 'information-circle-outline';
+    }
+  };
 
   // Функции для конвертации единиц измерения
   const convertTemperature = (temp, unit) => {
@@ -158,38 +147,35 @@ const getToastIcon = (type) => {
     }
   };
 
-  // 3. Добавьте функцию конвертации давления:
-const convertPressure = (pressure, unit) => {
-  // pressure приходит в гектопаскалях (hPa)
-  switch (unit) {
-    case 'mmHg':
-      return Math.round(pressure * 0.75); // 1 hPa = 0.75 мм рт.ст.
-    case 'hPa':
-      return Math.round(pressure); // Без изменений
-    case 'bar':
-      return (pressure / 1000).toFixed(3); // 1000 hPa = 1 бар
-    case 'psi':
-      return (pressure * 0.0145).toFixed(2); // 1 hPa = 0.0145 PSI
-    default:
-      return Math.round(pressure * 0.75);
-  }
-};
+  const convertPressure = (pressure, unit) => {
+    switch (unit) {
+      case 'mmHg':
+        return Math.round(pressure * 0.75);
+      case 'hPa':
+        return Math.round(pressure);
+      case 'bar':
+        return (pressure / 1000).toFixed(3);
+      case 'psi':
+        return (pressure * 0.0145).toFixed(2);
+      default:
+        return Math.round(pressure * 0.75);
+    }
+  };
 
-// 4. Добавьте функцию получения единицы измерения:
-const getPressureUnitLabel = (unit) => {
-  switch (unit) {
-    case 'mmHg':
-      return 'мм рт.ст'; // Без пробелов и точек
-    case 'hPa':
-      return 'гПа';
-    case 'bar':
-      return 'бар';
-    case 'psi':
-      return 'PSI';
-    default:
-      return 'мм рт.ст';
-  }
-};
+  const getPressureUnitLabel = (unit) => {
+    switch (unit) {
+      case 'mmHg':
+        return 'мм рт.ст';
+      case 'hPa':
+        return 'гПа';
+      case 'bar':
+        return 'бар';
+      case 'psi':
+        return 'PSI';
+      default:
+        return 'мм рт.ст';
+    }
+  };
 
   // Функции для работы с кэшем
   const getCacheKey = (lat, lon) => `weather_cache_${lat.toFixed(4)}_${lon.toFixed(4)}`;
@@ -219,12 +205,10 @@ const getPressureUnitLabel = (unit) => {
       if (cachedData) {
         const parsedData = JSON.parse(cachedData);
         const cacheAge = Date.now() - parsedData.timestamp;
-        const maxAge = 30 * 60 * 1000; // 30 минут
+        const maxAge = 30 * 60 * 1000;
 
         console.log(`Найден кэш, возраст: ${Math.round(cacheAge / 1000 / 60)} минут`);
         
-        // Возвращаем кэшированные данные независимо от возраста
-        // В офлайн режиме они всё равно лучше чем ничего
         return {
           weather: parsedData.weather,
           forecast: parsedData.forecast,
@@ -249,7 +233,7 @@ const getPressureUnitLabel = (unit) => {
         if (cachedData) {
           const parsedData = JSON.parse(cachedData);
           const cacheAge = Date.now() - parsedData.timestamp;
-          const maxAge = 365 * 24 * 60 * 60 * 1000; // 1 год (365 дней)
+          const maxAge = 365 * 24 * 60 * 60 * 1000;
           
           if (cacheAge > maxAge) {
             await AsyncStorage.removeItem(key);
@@ -269,13 +253,13 @@ const getPressureUnitLabel = (unit) => {
         AsyncStorage.getItem('useGeo'),
         AsyncStorage.getItem('unit'),
         AsyncStorage.getItem('windUnit'),
-        AsyncStorage.getItem('pressureUnit') // Добавляем загрузку настройки давления
+        AsyncStorage.getItem('pressureUnit')
       ]);
   
       setUseGeo(geoSetting !== 'false');
       if (unitSetting) setTempUnit(unitSetting);
       if (windSetting) setWindUnit(windSetting);
-      if (pressureSetting) setPressureUnit(pressureSetting); // Устанавливаем единицу давления
+      if (pressureSetting) setPressureUnit(pressureSetting);
     } catch (error) {
       console.error('Ошибка загрузки настроек:', error);
     }
@@ -286,7 +270,6 @@ const getPressureUnitLabel = (unit) => {
     setLoading(true);
     
     try {
-      // Сначала пробуем загрузить из кэша
       if (!forceOnline) {
         const cachedData = await loadWeatherFromCache(lat, lon);
         if (cachedData) {
@@ -298,24 +281,21 @@ const getPressureUnitLabel = (unit) => {
           
           if (cachedData.isExpired) {
             console.log('Кэш устарел, попытка обновления...');
-            // Пытаемся обновить в фоне
             loadWeatherData(lat, lon, true);
           }
           return;
         }
       }
   
-      // Загружаем свежие данные из API
       const current = await getCurrentWeather(lat, lon);
       const daily = await getDailyForecast(lat, lon);
       const hourlyRaw = await getHourlyForecast(lat, lon);
   
-      const today = new Date().toDateString();
+      // const today = new Date().toDateString();
       const hourly = hourlyRaw.list.filter(item =>
-        new Date(item.dt_txt).toDateString() === today
+        new Date(item.dt_txt).toDateString()
       );
   
-      // Сохраняем в кэш
       await saveWeatherToCache(lat, lon, current, daily, hourly);
       
       setWeather(current);
@@ -326,7 +306,6 @@ const getPressureUnitLabel = (unit) => {
       
       console.log('Данные загружены из API и сохранены в кэш');
       
-      // Показываем уведомление об успешном обновлении
       if (forceOnline) {
         showToast('Данные обновлены', 'success');
       }
@@ -334,7 +313,6 @@ const getPressureUnitLabel = (unit) => {
     } catch (error) {
       console.error('Ошибка загрузки погоды:', error);
       
-      // Если не удалось загрузить из API, пробуем кэш
       const cachedData = await loadWeatherFromCache(lat, lon);
       if (cachedData) {
         setWeather(cachedData.weather);
@@ -343,11 +321,9 @@ const getPressureUnitLabel = (unit) => {
         setIsOffline(true);
         setLoading(false);
         
-        // Заменяем Alert на toast
         showToast('Офлайн режим - данные из кэша', 'warning');
       } else {
         setLoading(false);
-        // Заменяем Alert на toast
         showToast('Ошибка загрузки данных', 'error');
       }
     }
@@ -355,14 +331,10 @@ const getPressureUnitLabel = (unit) => {
 
   useEffect(() => {
     (async () => {
-      // Сначала загружаем настройки
       await loadSettings();
-      
-      // Очищаем старые кэшированные данные
       await clearOldCache();
 
       try {
-        // Проверяем сохранённый город
         const saved = await AsyncStorage.getItem('savedCity');
         let lat, lon;
 
@@ -371,7 +343,6 @@ const getPressureUnitLabel = (unit) => {
           lat = coords.lat;
           lon = coords.lon;
         } else {
-          // Запрашиваем разрешение на геолокацию
           const { status } = await Location.requestForegroundPermissionsAsync();
           if (status !== 'granted') {
             setLoading(false);
@@ -391,7 +362,6 @@ const getPressureUnitLabel = (unit) => {
     })();
   }, []);
 
-  // Перезагрузка при возвращении с экрана настроек
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       loadSettings();
@@ -400,7 +370,51 @@ const getPressureUnitLabel = (unit) => {
     return unsubscribe;
   }, [navigation]);
 
-  // Функция для принудительного обновления данных
+  // Добавьте этот useEffect в HomeScreen после существующего useEffect с navigation.addListener
+
+useEffect(() => {
+  const unsubscribe = navigation.addListener('focus', async () => {
+    // Загружаем настройки при возвращении на экран
+    await loadSettings();
+    
+    // Проверяем, нужно ли обновить погодные данные
+    try {
+      const shouldRefresh = await AsyncStorage.getItem('shouldRefreshWeather');
+      if (shouldRefresh === 'true') {
+        // Удаляем флаг
+        await AsyncStorage.removeItem('shouldRefreshWeather');
+        
+        // Определяем координаты для обновления
+        const saved = await AsyncStorage.getItem('savedCity');
+        let lat, lon;
+
+        if (saved) {
+          const coords = JSON.parse(saved);
+          lat = coords.lat;
+          lon = coords.lon;
+        } else {
+          // Используем геолокацию
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status === 'granted') {
+            const location = await Location.getCurrentPositionAsync({});
+            lat = location.coords.latitude;
+            lon = location.coords.longitude;
+          } else {
+            return; // Нет разрешений
+          }
+        }
+
+        // Принудительно обновляем данные
+        await loadWeatherData(lat, lon, true);
+      }
+    } catch (error) {
+      console.error('Ошибка при проверке флага обновления:', error);
+    }
+  });
+
+  return unsubscribe;
+}, [navigation]);
+
   const refreshWeatherData = async () => {
     if (!weather) return;
     
@@ -437,20 +451,17 @@ const getPressureUnitLabel = (unit) => {
         blurRadius={70}
       >
         <StatusBar style={isDark ? 'light' : 'dark'} />
-          
-          {/* Оверлей загрузки */}
-          <View style={styles.loadingOverlay}>
-              {/* Используем стандартную анимацию облаков */}
-              <LottieView
-                source={require('../assets/lottie/weather-welcome.json')} // Или любая другая имеющаяся анимация
-                autoPlay
-                loop
-                style={styles.loadingAnimation}
-              />
-              <Text style={[styles.loadingText, { color: textColor }]}>
-                Загрузка погоды...
-              </Text>
-          </View>
+        <View style={styles.loadingOverlay}>
+          <LottieView
+            source={require('../assets/lottie/weather-welcome.json')}
+            autoPlay
+            loop
+            style={styles.loadingAnimation}
+          />
+          <Text style={[styles.loadingText, { color: textColor }]}>
+            Загрузка погоды...
+          </Text>
+        </View>
       </ImageBackground>
     );
   }
@@ -473,16 +484,15 @@ const getPressureUnitLabel = (unit) => {
           bounces={false}
         >
           {/* Поисковая строка и кнопки */}
-          <View style={[styles.searchContainer, { 
-            paddingTop: isSmallScreen ? 30 : 40,
-            marginBottom: isSmallScreen ? 10 : 20 
-          }]}>
+          <View style={styles.searchContainer}>
             {/* Кнопка настроек */}
             <TouchableOpacity 
               onPress={() => navigation.navigate('Settings')} 
-              style={[styles.settingsButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }]}
+              style={[styles.actionButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }]}
             >
+              <View style={{ justifyContent: 'center', alignItems: 'center' }}>
               <Ionicons name="settings" size={24} color={iconColor} />
+              </View>
             </TouchableOpacity>
 
             {/* Поле ввода */}
@@ -521,9 +531,11 @@ const getPressureUnitLabel = (unit) => {
             {/* Кнопка лупы */}
             <TouchableOpacity 
               onPress={() => setShowSearch(!showSearch)} 
-              style={[styles.searchButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }]}
+              style={[styles.actionButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }]}
             >
+              <View style={{ justifyContent: 'center', alignItems: 'center' }}>
               <Ionicons name="search" size={24} color={iconColor} />
+              </View>
             </TouchableOpacity>
           </View>
 
@@ -531,13 +543,8 @@ const getPressureUnitLabel = (unit) => {
           {showSearch && searchResults.length > 0 && (
             <View style={[
               styles.suggestionList,
-              { 
-                backgroundColor: isDark ? '#1e1e1e' : '#f5f5f5',
-                top: isSmallScreen ? 75 : 85
-              }
+              { backgroundColor: isDark ? '#1e1e1e' : '#f5f5f5' }
             ]}>
-              
-              {/* 📍 Кнопка геолокации - показываем только если включена геолокация */}
               {useGeo && (
                 <TouchableOpacity
                   onPress={async () => {
@@ -545,7 +552,6 @@ const getPressureUnitLabel = (unit) => {
                     setSearchCity('');
                     setSearchResults([]);
 
-                    // Удаляем сохранённый город
                     await AsyncStorage.removeItem('savedCity');
 
                     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -562,22 +568,22 @@ const getPressureUnitLabel = (unit) => {
                     { borderBottomColor: isDark ? '#777' : '#ccc' }
                   ]}
                 >
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Ionicons name="location-outline" size={16} color={textColor} style={{ marginRight: 6 }} />
-                  <Text style={{ color: textColor, fontWeight: 'bold' }}>
-                    Использовать геолокацию
-                  </Text>
-                </View>
+                  <View style={styles.suggestionContent}>
+                    <Ionicons name="location-outline" size={16} color={textColor} />
+                    <Text style={[styles.suggestionText, { color: textColor, fontWeight: 'bold' }]}>
+                      Использовать геолокацию
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               )}
 
-              {/* Города-подсказки */}
               {searchResults.map((item, index) => (
                 <TouchableOpacity
                   key={index}
                   onPress={async () => {
                     setShowSearch(false);
-                    setSearchCity(`${(item.local_names?.ru || item.name)}, ${countries.getName(item.country, 'ru') || item.country}`);
+                    // setSearchCity(`${(item.local_names?.ru || item.name)}, ${countries.getName(item.country, 'ru') || item.country}`);
+                    setSearchCity('');
                     setSearchResults([]);
 
                     const coords = { lat: item.lat, lon: item.lon };
@@ -590,128 +596,112 @@ const getPressureUnitLabel = (unit) => {
                     { borderBottomColor: isDark ? '#444' : '#eee' }
                   ]}
                 >
-                <Text style={{ color: textColor }}>
-                  {(item.local_names?.ru || item.name)}
-                  {item.state ? `, ${item.state}` : ''}, 
-                  {countries.getName(item.country, 'ru') || item.country}
-                </Text>
+                  <Text style={[styles.suggestionText, { color: textColor }]}>
+                    {(item.local_names?.ru || item.name)}
+                    {item.state ? `, ${item.state}` : ''}, 
+                    {countries.getName(item.country, 'ru') || item.country}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
           )}
 
-          {/* Верх: город + кнопка */}
+          {/* Заголовок с городом */}
           <View style={styles.header}>
-            <View>
-              <Text style={[styles.city, { 
-                color: textColor,
-                fontSize: isSmallScreen ? 24 : 28
-              }]}>{weather.name}</Text>
-              <Text style={[styles.country, { 
-                color: secondaryTextColor,
-                fontSize: isSmallScreen ? 14 : 16
-              }]}>
-                {countries.getName(weather.sys.country, 'ru') || weather.sys.country}
-              </Text>
+            <Text style={[styles.city, { color: textColor }]}>{weather.name}</Text>
+            <Text style={[styles.country, { color: secondaryTextColor }]}>
+              {countries.getName(weather.sys.country, 'ru') || weather.sys.country}
+            </Text>
+          </View>
+
+          {/* Основная информация о погоде */}
+          <View style={styles.weatherMainContainer}>
+            {/* Кнопка обновления */}
+            <View style={styles.refreshButtonContainer}>
+              <TouchableOpacity 
+                onPress={refreshWeatherData} 
+                style={[styles.refreshButton, { 
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' 
+                }]}
+              >
+                <View style={{ justifyContent: 'center', alignItems: 'center' }}>
+                <Ionicons name="refresh-outline" size={24} color={iconColor} />
+                </View>
+                {isOffline && <View style={styles.offlineDot} />}
+              </TouchableOpacity>
             </View>
-          </View>
 
-          {/* Анимация + температура */}
-          <View style={[styles.weatherMainContainer, {
-            marginTop: isSmallScreen ? 10 : 20
-          }]}>
-          {/* Левая колонка с кнопкой обновления и индикатором офлайн */}
-          <View style={styles.leftColumn}>
-            <TouchableOpacity 
-              onPress={refreshWeatherData} 
-              style={[styles.refreshButtonFixed, { 
-                backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' 
-              }]}
-            >
-              <Ionicons name="refresh-outline" size={24} color={iconColor} />
-              {/* Индикатор офлайн режима */}
-              {isOffline && (
-                <View style={styles.offlineDot} />
-              )}
-            </TouchableOpacity>
-          </View>
-
-            {/* Центральная колонка с анимацией и температурой */}
-            <View style={styles.weatherMain}>
+            {/* Центральная часть с анимацией и температурой */}
+            <View style={styles.weatherMainContent}>
               <LottieView
                 source={animation}
                 autoPlay
                 loop
-                style={{ 
-                  width: isSmallScreen ? 120 : (isMediumScreen ? 140 : 160), 
-                  height: isSmallScreen ? 120 : (isMediumScreen ? 140 : 160)
-                }}
+                style={styles.weatherAnimation}
               />
-              <Text style={[styles.temp, { 
-                color: textColor,
-                fontSize: isSmallScreen ? 50 : (isMediumScreen ? 55 : 60),
-                marginTop: isSmallScreen ? -5 : -10
-              }]}>
+              <Text style={[styles.temp, { color: textColor }]}>
                 {Math.round(convertTemperature(weather.main.temp, tempUnit))}{getTemperatureSymbol(tempUnit)}
               </Text>
-              <Text style={[styles.description, { 
-                color: secondaryTextColor,
-                fontSize: isSmallScreen ? 16 : 18,
-                marginTop: isSmallScreen ? -5 : -10
-              }]}>
+              <Text style={[styles.description, { color: secondaryTextColor }]}>
                 {weather.weather[0].description}
               </Text>
             </View>
 
-            {/* Правая колонка (пустая для симметрии) */}
-            <View style={styles.rightColumn} />
+            {/* Кнопка информации */}
+            <View style={styles.infoButtonContainer}>
+              <TouchableOpacity 
+                onPress={() => 
+                  Alert.alert(
+                    "Источник данных", 
+                    "Данные о погоде предоставляются бесплатным API OpenWeatherMap 2.5",
+                    [
+                      {
+                        text: "OK",
+                        style: "default"
+                      }
+                    ]
+                  )
+                } 
+                style={[styles.infoButton, { 
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' 
+                }]}
+              >
+                <View style={{ justifyContent: 'center', alignItems: 'center' }}>
+                <Ionicons name="information-circle-outline" size={24} color={iconColor} />
+                </View>
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {/* Детали */}
+          {/* Детали погоды */}
           <BlurView intensity={40} style={[
             styles.detailsContainer,
-            { 
-              backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-              marginTop: isSmallScreen ? 15 : 30,
-              padding: isSmallScreen ? 12 : 15
-            }
+            { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }
           ]}>
             <View style={styles.detailItem}>
-              <Feather name="wind" size={isSmallScreen ? 18 : 20} color={iconColor} />
-              <Text style={[styles.detailText, { 
-                color: textColor,
-                fontSize: isSmallScreen ? 12 : 14
-              }]}>
+              <Feather name="wind" size={20} color={iconColor} />
+              <Text style={[styles.detailText, { color: textColor }]}>
                 {convertWindSpeed(weather.wind.speed, windUnit).toFixed(1)} {getWindSpeedUnit(windUnit)}
               </Text>
             </View>
             <View style={styles.detailItem}>
-              <Feather name="droplet" size={isSmallScreen ? 18 : 20} color={iconColor} />
-              <Text style={[styles.detailText, { 
-                color: textColor,
-                fontSize: isSmallScreen ? 12 : 14
-              }]}>{weather.main.humidity}%</Text>
+              <Feather name="droplet" size={20} color={iconColor} />
+              <Text style={[styles.detailText, { color: textColor }]}>{weather.main.humidity}%</Text>
             </View>
             <View style={styles.detailItem}>
-              <Feather name="thermometer" size={isSmallScreen ? 18 : 20} color={iconColor} />
+              <Feather name="thermometer" size={20} color={iconColor} />
               <Text 
-                style={[styles.detailText, { 
-                  color: textColor,
-                  fontSize: isSmallScreen ? 12 : 14
-                }]}
-                numberOfLines={1} // Ограничиваем одной строчкой
-                adjustsFontSizeToFit={true} // Автоматически уменьшаем шрифт если не помещается
-                minimumFontScale={0.8} // Минимальный размер шрифта (80% от исходного)
+                style={[styles.detailText, { color: textColor }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit={true}
+                minimumFontScale={0.8}
               >
                 {convertPressure(weather.main.pressure, pressureUnit)} {getPressureUnitLabel(pressureUnit)}
               </Text>
             </View>
             <View style={styles.detailItem}>
-              <Feather name="sun" size={isSmallScreen ? 18 : 20} color={iconColor} />
-              <Text style={[styles.detailText, { 
-                color: textColor,
-                fontSize: isSmallScreen ? 12 : 14
-              }]}>
+              <Feather name="sun" size={20} color={iconColor} />
+              <Text style={[styles.detailText, { color: textColor }]}>
                 {new Date(weather.sys.sunrise * 1000).toLocaleTimeString('ru-RU', {
                   hour: '2-digit',
                   minute: '2-digit',
@@ -720,125 +710,24 @@ const getPressureUnitLabel = (unit) => {
             </View>
           </BlurView>
 
-          {/* Переключатели вкладок */}
-          <View style={[styles.tabRow, {
-            marginTop: isSmallScreen ? 15 : 20,
-            marginBottom: isSmallScreen ? 15 : 20
-          }]}>
-            <TouchableOpacity onPress={() => setActiveTab('daily')}>
-              <Text style={[
-                styles.tabText, 
-                { 
-                  color: activeTab === 'daily' ? textColor : secondaryTextColor,
-                  fontSize: isSmallScreen ? 14 : 16,
-                  paddingHorizontal: isSmallScreen ? 20 : 14,
-                },
-                activeTab === 'daily' && {
-                  ...styles.tabActive,
-                  borderColor: borderColor,
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'
-                }
-              ]}>
-                Погода на 5 дней
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setActiveTab('hourly')}>
-              <Text style={[
-                styles.tabText, 
-                { 
-                  color: activeTab === 'hourly' ? textColor : secondaryTextColor,
-                  fontSize: isSmallScreen ? 14 : 16
-                },
-                activeTab === 'hourly' && {
-                  ...styles.tabActive,
-                  borderColor: borderColor,
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'
-                }
-              ]}>
-                Почасовой прогноз
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Прогноз */}
-          <View style={[styles.forecastContainer, {
-            minHeight: isSmallScreen ? 140 : (isMediumScreen ? 160 : 180)
-          }]}>
-            {activeTab === 'daily' ? (
-              <FlatList
-                data={forecast}
-                horizontal
-                keyExtractor={(item, index) => index.toString()}
-                contentContainerStyle={{ 
-                  paddingHorizontal: 15,
-                  alignItems: 'flex-start'
-                }}
-                showsHorizontalScrollIndicator={false}
-                renderItem={({ item }) => (
-                  <View style={[
-                    styles.dailyCard,
-                    { 
-                      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
-                      width: isSmallScreen ? 90 : 110,
-                      padding: isSmallScreen ? 6 : 8
-                    }
-                  ]}>
-                    <Text style={[styles.day, { 
-                      color: textColor,
-                      fontSize: isSmallScreen ? 14 : 16
-                    }]}>
-                      {new Date(item.date).toLocaleDateString('ru-RU', {
-                        weekday: 'short',
-                      })}
-                    </Text>
-                    <LottieView
-                      source={getWeatherAnimation(item.main, item.description)}
-                      autoPlay
-                      loop
-                      style={{ 
-                        width: isSmallScreen ? 70 : 90, 
-                        height: isSmallScreen ? 70 : 90 
-                      }}
-                    />
-                    <Text style={[styles.weatherStatus, { 
-                      color: secondaryTextColor,
-                      fontSize: isSmallScreen ? 10 : 12,
-                      minHeight: isSmallScreen ? 32 : 36
-                    }]}>
-                      {item.description}
-                    </Text>
-                    <Text style={[styles.dayTemp, { 
-                      color: textColor,
-                      fontSize: isSmallScreen ? 16 : 18
-                    }]}>
-                      {Math.round(convertTemperature(item.temp, tempUnit))}{getTemperatureSymbol(tempUnit)}
-                    </Text>
-                  </View>
-                )}
-              />
-            ) : (
+          {/* Почасовой прогноз */}
+          <View style={styles.sectionContainer}>
+            <Text style={[styles.sectionTitle, { color: textColor }]}>
+              Почасовой прогноз
+            </Text>
+            <View style={styles.forecastContainer}>
               <FlatList
                 data={hourlyForecast.slice(0, 8)}
                 horizontal
                 keyExtractor={(item, index) => index.toString()}
-                contentContainerStyle={{ 
-                  paddingHorizontal: 15,
-                  alignItems: 'flex-start'
-                }}
+                contentContainerStyle={styles.forecastList}
                 showsHorizontalScrollIndicator={false}
                 renderItem={({ item }) => (
                   <View style={[
-                    styles.dailyCard,
-                    { 
-                      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
-                      width: isSmallScreen ? 90 : 110,
-                      padding: isSmallScreen ? 6 : 8
-                    }
+                    styles.forecastCard,
+                    { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }
                   ]}>
-                    <Text style={[styles.day, { 
-                      color: textColor,
-                      fontSize: isSmallScreen ? 14 : 16
-                    }]}>
+                    <Text style={[styles.forecastDay, { color: textColor }]}>
                       {new Date(item.dt_txt).toLocaleTimeString('ru-RU', {
                         hour: '2-digit',
                         minute: '2-digit',
@@ -848,28 +737,78 @@ const getPressureUnitLabel = (unit) => {
                       source={getWeatherAnimation(item.weather[0].main, item.weather[0].description)}
                       autoPlay
                       loop
-                      style={{ 
-                        width: isSmallScreen ? 70 : 90, 
-                        height: isSmallScreen ? 70 : 90 
-                      }}
+                      style={styles.forecastAnimation}
                     />
-                    <Text style={[styles.weatherStatus, { 
-                      color: secondaryTextColor,
-                      fontSize: isSmallScreen ? 10 : 12,
-                      minHeight: isSmallScreen ? 32 : 36
-                    }]}>
+                    <Text style={[styles.forecastDescription, { color: secondaryTextColor }]}>
                       {item.weather[0].description}
                     </Text>
-                    <Text style={[styles.dayTemp, { 
-                      color: textColor,
-                      fontSize: isSmallScreen ? 16 : 18
-                    }]}>
+                    <Text style={[styles.forecastTemp, { color: textColor }]}>
                       {Math.round(convertTemperature(item.main.temp, tempUnit))}{getTemperatureSymbol(tempUnit)}
                     </Text>
                   </View>
                 )}
               />
-            )}
+            </View>
+          </View>
+
+          {/* Прогноз на 5 дней */}
+          <View style={styles.sectionContainer}>
+            <Text style={[styles.sectionTitle, { color: textColor }]}>
+              Прогноз на 5 дней
+            </Text>
+            <View style={styles.dailyForecastContainer}>
+              {forecast.map((item, index) => (
+                <View key={index} style={[
+                  styles.dailyForecastCard,
+                  { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }
+                ]}>
+                  <View style={styles.dailyForecastLeft}>
+                    <Text style={[styles.dailyForecastDate, { color: textColor }]}>
+                      {new Date(item.date).toLocaleDateString('ru-RU', {
+                        day: 'numeric',
+                        month: 'long',
+                      })}
+                    </Text>
+                    <Text style={[styles.dailyForecastDay, { color: secondaryTextColor }]}>
+                      {new Date(item.date).toLocaleDateString('ru-RU', {
+                        weekday: 'long',
+                      })}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.dailyForecastCenter}>
+                    <LottieView
+                      source={getWeatherAnimation(item.main, item.description)}
+                      autoPlay
+                      loop
+                      style={styles.dailyForecastAnimation}
+                    />
+                  </View>
+                  
+                  <View style={styles.dailyForecastRight}>
+                    {/* Блок с дневной температурой */}
+                    <View style={styles.tempBlock}>
+                      <Text style={[styles.tempLabel, { color: secondaryTextColor }]}>
+                        День
+                      </Text>
+                      <Text style={[styles.dailyForecastDayTemp, { color: textColor }]}>
+                        {Math.round(convertTemperature(item.temp, tempUnit))}°
+                      </Text>
+                    </View>
+                    
+                    {/* Блок с ночной температурой */}
+                    <View style={styles.tempBlock}>
+                      <Text style={[styles.tempLabel, { color: secondaryTextColor }]}>
+                        Ночь
+                      </Text>
+                      <Text style={[styles.dailyForecastNightTemp, { color: secondaryTextColor }]}>
+                        {Math.round(convertTemperature(item.nightTemp, tempUnit))}°
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
           </View>
         </ScrollView>
 
@@ -877,10 +816,7 @@ const getPressureUnitLabel = (unit) => {
         {toastVisible && (
           <View style={[
             styles.toastContainer, 
-            { 
-              backgroundColor: getToastColor(toastType, isDark),
-              top: isSmallScreen ? 40 : 50
-            }
+            { backgroundColor: getToastColor(toastType, isDark) }
           ]}>
             <Ionicons 
               name={getToastIcon(toastType)} 
@@ -898,33 +834,7 @@ const getPressureUnitLabel = (unit) => {
 }
 
 const styles = StyleSheet.create({
-  weatherMainContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    justifyContent: 'space-between',
-  },
-  leftColumn: {
-    width: 50,
-    alignItems: 'flex-start',
-    paddingTop: 20, // Выравнивание с уровнем кнопки настроек
-  },
-  rightColumn: {
-    width: 50, // Для симметрии
-  },
-  weatherMain: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  
-  // Общий стиль для кнопки:
-  refreshButtonFixed: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  // Базовые контейнеры
   background: {
     flex: 1,
     justifyContent: 'center',
@@ -938,56 +848,35 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 20,
+    gap: 20,
+    paddingBottom: 50,
   },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-  },
-  offlineIndicator: {
-    position: 'absolute',
-    left: 20,
-    padding: 10,
-    borderRadius: 999,
-  },
-  refreshButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+
+  // Поиск и заголовок
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
+    paddingTop: 40,
+    gap: 10,
     position: 'relative',
     zIndex: 100,
   },
-  settingsButton: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
+  actionButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  searchButton: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
-    justifyContent: 'center',
-    alignItems: 'center',
+    // Добавляем эти свойства для точного центрирования
+    display: 'flex',
+    flexDirection: 'row', // Важно для некоторых иконок
   },
   textInput: {
     flex: 1,
-    height: 45,
-    borderRadius: 22.5,
+    height: 44,
+    borderRadius: 22,
     paddingHorizontal: 20,
-    marginHorizontal: 10,
     fontSize: 16,
     textAlign: 'center',
   },
@@ -1006,93 +895,224 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     borderBottomWidth: 1,
   },
+  suggestionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  suggestionText: {
+    fontSize: 14,
+  },
+
+  // Заголовок
   header: {
     alignItems: 'center',
     paddingHorizontal: 20,
   },
   city: {
+    fontSize: 28,
     fontWeight: 'bold',
     textAlign: 'center',
   },
   country: {
+    fontSize: 16,
     textAlign: 'center',
     marginTop: 2,
   },
+
+  // Основная погодная информация
+  weatherMainContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 15,
+    justifyContent: 'space-between',
+  },
+  infoButtonContainer: {
+    width: 0,
+    alignItems: 'flex-end',
+    paddingTop: 20,
+  },
+  infoButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    // Добавляем эти свойства для точного центрирования
+    display: 'flex',
+    flexDirection: 'row', // Важно для некоторых иконок
+  },
+  refreshButtonContainer: {
+    width: 0,
+    alignItems: 'flex-start',
+    paddingTop: 20,
+  },
+  refreshButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    // Добавляем эти свойства для точного центрирования
+    display: 'flex',
+    flexDirection: 'row', // Важно для некоторых иконок
+  },
+  weatherMainContent: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  weatherAnimation: {
+    width: 160,
+    height: 160,
+  },
   temp: {
+    fontSize: 60,
     fontWeight: 'bold',
     textAlign: 'center',
+    marginTop: -10,
   },
   description: {
+    fontSize: 18,
     textAlign: 'center',
     textTransform: 'capitalize',
+    marginTop: -10,
   },
+
+  // Детали погоды
   detailsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    marginHorizontal: 20,
+    marginHorizontal: 15,
+    paddingVertical: 15,
     borderRadius: 20,
     overflow: 'hidden',
   },
   detailItem: {
-    alignItems: 'center',
     flex: 1,
+    alignItems: 'center',
+    gap: 5,
   },
   detailText: {
-    marginTop: 5,
+    fontSize: 14,
     fontWeight: '500',
-    alignItems: 'center',
-    justifyContent: 'center',
     textAlign: 'center',
   },
-  tabRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+
+  // Секции прогнозов
+  sectionContainer: {
+    gap: 15,
   },
-  tabText: {
-    fontSize: 16,
-    fontWeight: '500',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    textAlign: 'center',
-  },
-  tabActive: {
+  sectionTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
-    borderWidth: 1,
-    borderRadius: 20,
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
-  forecastContainer: {
-    paddingLeft: 0,
-    paddingRight: 0,
+
+  // Прогноз на 5 дней (новый стиль)
+  dailyForecastContainer: {
+    paddingHorizontal: 15,
+    gap: 12,
   },
-  dailyCard: {
+  dailyForecastCard: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 5,
+    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    justifyContent: 'space-between',
+  },
+  dailyForecastLeft: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  dailyForecastDate: {
+    fontSize: 16,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  dailyForecastDay: {
+    fontSize: 14,
+    marginTop: 2,
+    textTransform: 'capitalize',
+  },
+  dailyForecastCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 20,
+  },
+  dailyForecastAnimation: {
+    width: 50,
+    height: 50,
+  },
+  dailyForecastRight: {
+    minWidth: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 15,
+  },
+  tempBlock: {
+    alignItems: 'center',
+  },
+  tempLabel: {
+    fontSize: 14,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  dailyForecastDayTemp: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  dailyForecastNightTemp: {
+    fontSize: 18,
+    textAlign: 'center',
+  },
+
+  // Прогноз
+  forecastContainer: {
+    minHeight: 180,
+  },
+  forecastList: {
+    paddingHorizontal: 15,
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  forecastCard: {
+    alignItems: 'center',
     borderRadius: 15,
     padding: 8,
     width: 110,
     minHeight: 160,
   },
-  day: {
+  forecastDay: {
+    fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 5,
     textTransform: 'capitalize',
   },
-  weatherStatus: {
+  forecastAnimation: {
+    width: 90,
+    height: 90,
+  },
+  forecastDescription: {
+    fontSize: 12,
     textAlign: 'center',
     textTransform: 'capitalize',
     marginVertical: 5,
     lineHeight: 16,
     minHeight: 32,
   },
-  dayTemp: {
+  forecastTemp: {
+    fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
     marginTop: 5,
   },
+
+  // Индикаторы и уведомления
   offlineDot: {
     position: 'absolute',
     top: 8,
@@ -1104,7 +1124,8 @@ const styles = StyleSheet.create({
   },
   toastContainer: {
     position: 'absolute',
-    left: '20%', // Больше ширины - 70% экрана
+    top: 50,
+    left: '20%',
     right: '20%',
     borderRadius: 20,
     paddingVertical: 10,
@@ -1112,15 +1133,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
     zIndex: 1000,
   },
   toastText: {
     fontSize: 14,
     fontWeight: '500',
     textAlign: 'center',
-    marginLeft: 8,
     flex: 1,
   },
+
+  // Загрузка
   loadingOverlay: {
     position: 'absolute',
     top: 0,
@@ -1129,22 +1152,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 15,
     zIndex: 500,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)', // Полупрозрачный фон
-  },
-  loadingContainer: {
-    borderRadius: 20,
-    paddingVertical: 30,
-    paddingHorizontal: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 40,
-    maxWidth: 280,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   loadingAnimation: {
     width: 160,
     height: 160,
-    marginBottom: 15,
   },
   loadingText: {
     fontSize: 16,
