@@ -5,20 +5,28 @@ import {
   TouchableOpacity,
   ImageBackground,
   ScrollView,
-  Dimensions,
   Alert,
+  TextInput,
+  Linking,
 } from 'react-native';
 import {
   Switch,
   Text,
-  TextInput,
 } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { useThemeContext } from '../theme/ThemeContext';
+import * as Location from 'expo-location';
+import { searchCityByName, getCurrentWeather } from '../api/weather';
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+import countries from 'i18n-iso-countries';
+import ruLocale from 'i18n-iso-countries/langs/ru.json';
+
+import NotificationService from '../services/NotificationService';
+import DateTimePicker from '@react-native-community/datetimepicker';
+
+countries.registerLocale(ruLocale);
 
 export default function SettingsScreen({ navigation }) {
   const { isDark, toggleTheme } = useThemeContext();
@@ -30,12 +38,31 @@ export default function SettingsScreen({ navigation }) {
   const [showUnitDropdown, setShowUnitDropdown] = useState(false);
   const [showWindDropdown, setShowWindDropdown] = useState(false);
   const [showPressureDropdown, setShowPressureDropdown] = useState(false);
+  
+  // Новые состояния для города
+  const [currentCity, setCurrentCity] = useState('');
+  const [searchCity, setSearchCity] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showCitySearch, setShowCitySearch] = useState(false);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
 
-  // Адаптивные размеры
-  const isSmallScreen = screenHeight < 700;
-  const isMediumScreen = screenHeight >= 700 && screenHeight < 800;
-  const isLargeScreen = screenHeight >= 800;
-  const isTablet = screenWidth > 600;
+  // Новые состояния для видимости
+  const [visibilityUnit, setVisibilityUnit] = useState('km');
+  const [showVisibilityDropdown, setShowVisibilityDropdown] = useState(false);
+
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState('30'); // в минутах
+  const [showAutoRefreshDropdown, setShowAutoRefreshDropdown] = useState(false);
+
+  // Состояния для уведомлений
+  const [todayNotificationEnabled, setTodayNotificationEnabled] = useState(false);
+  const [tomorrowNotificationEnabled, setTomorrowNotificationEnabled] = useState(false);
+  const [todayNotificationTime, setTodayNotificationTime] = useState('08:00');
+  const [tomorrowNotificationTime, setTomorrowNotificationTime] = useState('20:00');
+  const [showTodayTimePicker, setShowTodayTimePicker] = useState(false);
+  const [showTomorrowTimePicker, setShowTomorrowTimePicker] = useState(false);
+
+  const [cardsLayout, setCardsLayout] = useState('horizontal'); // 'horizontal' для 1x8, 'grid' для 2x4
+  const [showCardsLayoutDropdown, setShowCardsLayoutDropdown] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -44,14 +71,196 @@ export default function SettingsScreen({ navigation }) {
       const savedUnit = await AsyncStorage.getItem('unit');
       const savedWind = await AsyncStorage.getItem('windUnit');
       const savedPressure = await AsyncStorage.getItem('pressureUnit');
+      const savedVisibility = await AsyncStorage.getItem('visibilityUnit');
+      const savedAutoRefresh = await AsyncStorage.getItem('autoRefreshInterval');
+      const savedCardsLayout = await AsyncStorage.getItem('cardsLayout');
 
+      const savedTodayEnabled = await AsyncStorage.getItem('todayWeatherNotificationEnabled');
+      const savedTomorrowEnabled = await AsyncStorage.getItem('tomorrowWeatherNotificationEnabled');
+      const savedTodayTime = await AsyncStorage.getItem('todayWeatherNotificationTime');
+      const savedTomorrowTime = await AsyncStorage.getItem('tomorrowWeatherNotificationTime');
+
+      setTodayNotificationEnabled(savedTodayEnabled === 'true');
+      setTomorrowNotificationEnabled(savedTomorrowEnabled === 'true');
+      if (savedTodayTime) setTodayNotificationTime(savedTodayTime);
+      if (savedTomorrowTime) setTomorrowNotificationTime(savedTomorrowTime);
+  
       setUseGeo(geo !== 'false');
       if (citySaved) setCity(citySaved);
       if (savedUnit) setUnit(savedUnit);
       if (savedWind) setWindUnit(savedWind);
       if (savedPressure) setPressureUnit(savedPressure);
+      if (savedVisibility) setVisibilityUnit(savedVisibility);
+      if (savedAutoRefresh) setAutoRefreshInterval(savedAutoRefresh);
+      if (savedCardsLayout) setCardsLayout(savedCardsLayout);
+  
+      await loadCurrentCity();
     })();
   }, []);
+
+  // Функции для работы с уведомлениями
+const handleTodayNotificationToggle = async (value) => {
+  setTodayNotificationEnabled(value);
+  await updateSetting('todayWeatherNotificationEnabled', value.toString());
+  await NotificationService.restartTimers();
+};
+
+const handleTomorrowNotificationToggle = async (value) => {
+  setTomorrowNotificationEnabled(value);
+  await updateSetting('tomorrowWeatherNotificationEnabled', value.toString());
+  await NotificationService.restartTimers();
+};
+
+const handleTodayTimeChange = async (event, selectedTime) => {
+  setShowTodayTimePicker(false);
+  if (selectedTime) {
+    const timeString = selectedTime.toTimeString().slice(0, 5);
+    setTodayNotificationTime(timeString);
+    await updateSetting('todayWeatherNotificationTime', timeString);
+    await NotificationService.restartTimers();
+  }
+};
+
+const handleTomorrowTimeChange = async (event, selectedTime) => {
+  setShowTomorrowTimePicker(false);
+  if (selectedTime) {
+    const timeString = selectedTime.toTimeString().slice(0, 5);
+    setTomorrowNotificationTime(timeString);
+    await updateSetting('tomorrowWeatherNotificationTime', timeString);
+    await NotificationService.restartTimers();
+  }
+};
+
+// Функция для получения лейбла макета:
+const getCardsLayoutLabel = (layout) => {
+  switch (layout) {
+    case 'horizontal':
+      return 'Горизонтальная прокрутка (1×8)';
+    case 'grid':
+      return 'Сетка (2×4)';
+    case 'horizontal_grid':
+      return 'Сетка с прокруткой (4×2)';
+    default:
+      return 'Горизонтальная прокрутка (1×8)';
+  }
+};
+
+// Функция для отправки тестового уведомления
+const handleTestNotification = async (type) => {
+  try {
+    await NotificationService.sendTestNotification(type);
+    Alert.alert(
+      'Тестовое уведомление',
+      'Уведомление отправлено! Проверьте панель уведомлений.'
+    );
+  } catch (error) {
+    Alert.alert(
+      'Ошибка',
+      'Не удалось отправить уведомление. Проверьте разрешения в настройках устройства.'
+    );
+  }
+};
+
+  const loadCurrentCity = async () => {
+    try {
+      const savedCity = await AsyncStorage.getItem('savedCity');
+      
+      if (savedCity) {
+        // Есть сохраненный город (выбранный пользователем)
+        const coords = JSON.parse(savedCity);
+        
+        try {
+          // Пытаемся получить информацию о городе по координатам
+          const weather = await getCurrentWeather(coords.lat, coords.lon);
+          const cityName = `${weather.name}, ${countries.getName(weather.sys.country, 'ru') || weather.sys.country}`;
+          
+          // Сохраняем название города для использования в оффлайне
+          await AsyncStorage.setItem('savedCityName', cityName);
+          setCurrentCity(cityName);
+          
+        } catch (networkError) {
+          console.log('Нет соединения с интернетом, используем сохраненное название города:', networkError);
+          
+          // Пытаемся загрузить сохраненное название города
+          const savedCityName = await AsyncStorage.getItem('savedCityName');
+          if (savedCityName) {
+            setCurrentCity(`${savedCityName} (оффлайн)`);
+          } else {
+            // Если нет сохраненного названия, показываем координаты
+            setCurrentCity(`${coords.lat.toFixed(4)}, ${coords.lon.toFixed(4)} (координаты)`);
+          }
+        }
+      } else {
+        // Нет сохраненного города - используется геолокация
+        // Проверяем, есть ли сохраненное название города по геолокации
+        const geoLocationName = await AsyncStorage.getItem('geoLocationName');
+        
+        if (geoLocationName) {
+          setCurrentCity(`${geoLocationName} (по геолокации)`);
+        } else {
+          // Если геолокация включена и разрешена, пытаемся определить текущее местоположение
+          if (useGeo) {
+            try {
+              const { status } = await Location.getForegroundPermissionsAsync();
+              
+              if (status === 'granted') {
+                setCurrentCity('Определение местоположения...');
+                
+                const location = await Location.getCurrentPositionAsync({
+                  accuracy: Location.Accuracy.Balanced,
+                  timeout: 10000, // Таймаут 10 секунд
+                });
+                
+                try {
+                  // Получаем название города по координатам
+                  const weather = await getCurrentWeather(location.coords.latitude, location.coords.longitude);
+                  const cityName = `${weather.name}, ${countries.getName(weather.sys.country, 'ru') || weather.sys.country}`;
+                  
+                  // Сохраняем название для будущего использования
+                  await AsyncStorage.setItem('geoLocationName', cityName);
+                  setCurrentCity(`${cityName} (по геолокации)`);
+                  
+                } catch (weatherError) {
+                  console.log('Ошибка при получении данных о погоде по геолокации:', weatherError);
+                  
+                  // Сохраняем координаты как fallback
+                  const coordsString = `${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`;
+                  await AsyncStorage.setItem('geoLocationName', coordsString);
+                  setCurrentCity(`${coordsString} (по геолокации)`);
+                }
+                
+              } else {
+                setCurrentCity('Геолокация отключена в настройках устройства');
+              }
+            } catch (locationError) {
+              console.log('Ошибка определения геолокации:', locationError);
+              setCurrentCity('Не удалось определить местоположение');
+            }
+          } else {
+            setCurrentCity('Геолокация отключена в настройках приложения');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки текущего города:', error);
+      
+      // Пытаемся загрузить любое сохраненное название города как fallback
+      try {
+        const savedCityName = await AsyncStorage.getItem('savedCityName');
+        const geoLocationName = await AsyncStorage.getItem('geoLocationName');
+        
+        if (savedCityName) {
+          setCurrentCity(`${savedCityName} (оффлайн)`);
+        } else if (geoLocationName) {
+          setCurrentCity(`${geoLocationName} (по геолокации, оффлайн)`);
+        } else {
+          setCurrentCity('Местоположение недоступно');
+        }
+      } catch (fallbackError) {
+        setCurrentCity('Местоположение недоступно');
+      }
+    }
+  };
 
   const updateSetting = async (key, value) => {
     await AsyncStorage.setItem(key, value);
@@ -59,20 +268,43 @@ export default function SettingsScreen({ navigation }) {
 
   const getWindUnitLabel = (unit) => {
     switch (unit) {
-      case 'm/s': return isSmallScreen ? 'м/с' : 'м/с (метры в секунду)';
-      case 'km/h': return isSmallScreen ? 'км/ч' : 'км/ч (километры в час)';
-      case 'mph': return isSmallScreen ? 'mph' : 'mph (мили в час)';
+      case 'm/s': return 'м/с (метры в секунду)';
+      case 'km/h': return 'км/ч (километры в час)';
+      case 'mph': return 'mph (мили в час)';
       default: return unit;
     }
   };
 
   const getPressureUnitLabel = (unit) => {
     switch (unit) {
-      case 'mmHg': return isSmallScreen ? 'мм рт.ст.' : 'мм рт.ст. (миллиметры ртутного столба)';
-      case 'hPa': return isSmallScreen ? 'гПа' : 'гПа (гектопаскали)';
+      case 'mmHg': return 'мм рт.ст. (миллиметры ртутного столба)';
+      case 'hPa': return 'гПа (гектопаскали)';
       case 'bar': return 'бар';
-      case 'psi': return isSmallScreen ? 'PSI' : 'PSI (фунты на квадратный дюйм)';
+      case 'psi': return 'PSI (фунты на квадратный дюйм)';
       default: return unit;
+    }
+  };
+
+  const getVisibilityUnitLabel = (unit) => {
+    switch (unit) {
+      case 'km': return 'км (километры)';
+      case 'm': return 'м (метры)';
+      case 'mi': return 'мили';
+      default: return unit;
+    }
+  };
+
+  const getAutoRefreshLabel = (minutes) => {
+    const mins = parseInt(minutes);
+    switch (mins) {
+      case 60: return 'Каждый час';
+      case 120: return 'Каждые 2 часа';
+      case 240: return 'Каждые 4 часа';
+      case 480: return 'Каждые 8 часов';
+      case 720: return 'Каждые 12 часов';
+      case 1440: return 'Каждые 24 часа';
+      case 30:
+      default: return 'Каждые 30 минут';
     }
   };
 
@@ -81,7 +313,135 @@ export default function SettingsScreen({ navigation }) {
     setShowUnitDropdown(false);
     setShowWindDropdown(false);
     setShowPressureDropdown(false);
+    setShowVisibilityDropdown(false);
+    setShowAutoRefreshDropdown(false);
+    setShowCardsLayoutDropdown(false);
+    setShowCitySearch(false);
   };
+
+  // Функция автоматического определения местоположения
+  const handleAutoLocation = async () => {
+    setIsLoadingLocation(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Разрешение не получено',
+          'Для определения местоположения необходимо разрешить доступ к геолокации в настройках устройства.'
+        );
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      // Удаляем сохраненный город, чтобы использовать геолокацию
+      await AsyncStorage.removeItem('savedCity');
+      await AsyncStorage.removeItem('savedCityName');
+      
+      try {
+        // Получаем название города по координатам
+        const weather = await getCurrentWeather(location.coords.latitude, location.coords.longitude);
+        const cityName = `${weather.name}, ${countries.getName(weather.sys.country, 'ru') || weather.sys.country}`;
+        
+        // Сохраняем название города для геолокации
+        await AsyncStorage.setItem('geoLocationName', cityName);
+        setCurrentCity(`${cityName} (по геолокации)`);
+        
+        // Сигнализируем главному экрану об обновлении
+        await AsyncStorage.setItem('shouldRefreshWeather', 'true');
+
+        Alert.alert(
+          'Успешно',
+          `Местоположение определено: ${cityName}`,
+          [
+            {
+              text: 'ОК',
+              onPress: () => {
+                // Возвращаемся на главный экран для обновления данных
+                navigation.goBack();
+              }
+            }
+          ]
+        );
+      } catch (weatherError) {
+        console.log('Ошибка при получении данных о погоде:', weatherError);
+        
+        // Если не удалось получить данные о погоде, сохраняем координаты
+        const coordsString = `${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`;
+        await AsyncStorage.setItem('geoLocationName', coordsString);
+        setCurrentCity(`${coordsString} (по геолокации)`);
+        
+        Alert.alert(
+          'Местоположение определено',
+          'Координаты определены, но не удалось получить название города из-за отсутствия интернета.',
+          [
+            {
+              text: 'ОК',
+              onPress: () => {
+                navigation.goBack();
+              }
+            }
+          ]
+        );
+      }
+
+    } catch (error) {
+      console.error('Ошибка определения местоположения:', error);
+      Alert.alert(
+        'Ошибка',
+        'Не удалось определить местоположение. Проверьте подключение к интернету и настройки геолокации.'
+      );
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  };
+
+// Функция выбора города
+const handleCitySelect = async (cityData) => {
+  try {
+    const coords = { lat: cityData.lat, lon: cityData.lon };
+    const cityName = `${(cityData.local_names?.ru || cityData.name)}, ${countries.getName(cityData.country, 'ru') || cityData.country}`;
+    
+    // Сохраняем координаты и название выбранного города
+    await AsyncStorage.setItem('savedCity', JSON.stringify(coords));
+    await AsyncStorage.setItem('savedCityName', cityName);
+    
+    // Очищаем данные геолокации, так как теперь используется выбранный город
+    await AsyncStorage.removeItem('geoLocationName');
+    
+    setCurrentCity(cityName);
+    setSearchCity('');
+    setSearchResults([]);
+    setShowCitySearch(false);
+    
+    // НЕ изменяем настройку useGeo - она должна быть независимой
+    // setUseGeo(false);
+    // await updateSetting('useGeo', 'false');
+
+    // Сигнализируем главному экрану об обновлении
+    await AsyncStorage.setItem('shouldRefreshWeather', 'true');
+
+    Alert.alert(
+      'Город изменен',
+      `Выбран город: ${cityName}`,
+      [
+        {
+          text: 'ОК',
+          onPress: () => {
+            // Возвращаемся на главный экран для обновления данных
+            navigation.goBack();
+          }
+        }
+      ]
+    );
+
+  } catch (error) {
+    console.error('Ошибка выбора города:', error);
+    Alert.alert('Ошибка', 'Не удалось выбрать город');
+  }
+};
 
   // Функция сброса приложения
   const handleResetApp = () => {
@@ -132,25 +492,15 @@ export default function SettingsScreen({ navigation }) {
   };
 
   const DropdownList = ({ items, onSelect, onClose }) => {
-    // Динамически рассчитываем высоту в зависимости от количества элементов
-    const itemHeight = isSmallScreen ? 42 : (isTablet ? 56 : 48);
-    const maxVisibleItems = isSmallScreen ? 4 : (isTablet ? 4 : 4); // Увеличиваем до 4 для маленьких экранов
-    const paddingTotal = 16; // Общий padding
-    const calculatedHeight = Math.min(items.length, maxVisibleItems) * itemHeight + paddingTotal;
-    
     return (
       <View style={[
         styles.suggestionList, 
-        { 
-          backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-          height: calculatedHeight,
-          maxHeight: isSmallScreen ? 200 : (isTablet ? 280 : 220) // Увеличиваем maxHeight
-        }
+        { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
       ]}>
         <ScrollView 
-          showsVerticalScrollIndicator={items.length > maxVisibleItems}
+          showsVerticalScrollIndicator={false}
           bounces={false}
-          contentContainerStyle={{ paddingVertical: 6 }}
+          contentContainerStyle={styles.dropdownContent}
         >
           {items.map((item, index) => (
             <TouchableOpacity
@@ -163,19 +513,13 @@ export default function SettingsScreen({ navigation }) {
                 styles.suggestionItem,
                 { 
                   borderBottomWidth: index === items.length - 1 ? 0 : 1,
-                  borderBottomColor: isDark ? '#444' : '#eee',
-                  height: itemHeight,
-                  paddingVertical: isSmallScreen ? 6 : (isTablet ? 12 : 10)
+                  borderBottomColor: isDark ? '#444' : '#eee'
                 }
               ]}
             >
               <Text style={[
                 styles.suggestionItemText, 
-                { 
-                  color: isDark ? '#fff' : '#000',
-                  fontSize: isSmallScreen ? 12 : (isTablet ? 18 : 15), // Уменьшаем шрифт на маленьких экранах
-                  lineHeight: isSmallScreen ? 14 : (isTablet ? 22 : 18)
-                }
+                { color: isDark ? '#fff' : '#000' }
               ]}>
                 {item.label}
               </Text>
@@ -186,6 +530,52 @@ export default function SettingsScreen({ navigation }) {
     );
   };
 
+  // Функция для открытия GitHub
+  const handleOpenGitHub = async () => {
+    const githubUrl = 'https://github.com/Vdem07/weather-glass-app'; // Замените на ваш репозиторий
+    
+    try {
+      const supported = await Linking.canOpenURL(githubUrl);
+      
+      if (supported) {
+        await Linking.openURL(githubUrl);
+      } else {
+        Alert.alert(
+          'Ошибка',
+          'Не удалось открыть ссылку. Скопируйте адрес вручную: ' + githubUrl
+        );
+      }
+    } catch (error) {
+      console.error('Ошибка при открытии GitHub:', error);
+      Alert.alert(
+        'Ошибка',
+        'Не удалось открыть ссылку на GitHub'
+      );
+    }
+  };
+
+  // Функция для показа политики конфиденциальности
+  const handleShowPrivacyPolicy = () => {
+    Alert.alert(
+      'Политика конфиденциальности',
+      'Это приложение разработано независимым разработчиком и полностью уважает вашу конфиденциальность:\n\n' +
+      '• Приложение НЕ собирает ваши персональные данные\n' +
+      '• Приложение НЕ отслеживает ваше поведение в приложении\n' +
+      '• Приложение НЕ передает данные третьим лицам или рекламодателям\n' +
+      '• Все ваши настройки хранятся только локально на устройстве\n' +
+      '• Геолокация используется исключительно для получения прогноза погоды\n' +
+      '• У приложения нет серверной части для сбора данных\n' +
+      '• Нет аналитики, трекеров или рекламных модулей\n\n' +
+      'Приложение создано для вас, а не для монетизации ваших данных. Ваша конфиденциальность — это основной приоритет.',
+      [
+        {
+          text: 'Понятно',
+          style: 'default',
+        }
+      ]
+    );
+  };
+
   const backgroundImage = isDark
     ? require('../assets/backgrounds/bg-blobs.png')
     : require('../assets/backgrounds/bg-blobs-white.png');
@@ -193,83 +583,184 @@ export default function SettingsScreen({ navigation }) {
   return (
     <ImageBackground source={backgroundImage} style={styles.background} resizeMode="cover" blurRadius={70}>
       <BlurView intensity={50} tint={isDark ? 'dark' : 'light'} style={styles.blurOverlay}>
+        
+        {/* Фиксированная панель навигации */}
+        <View style={styles.fixedHeader}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={[
+              styles.backButton,
+              { backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)' }
+            ]}
+          >
+            <View style={{ justifyContent: 'center', alignItems: 'center' }}>
+              <Ionicons 
+                name="chevron-back" 
+                size={20} 
+                color={isDark ? '#fff' : '#000'} 
+              />
+            </View>
+          </TouchableOpacity>
+
+          <Text style={[styles.title, { color: isDark ? '#fff' : '#000' }]}>
+            Настройки
+          </Text>
+        </View>
+
+        {/* Прокручиваемый контент */}
         <ScrollView 
           style={styles.scrollContainer}
-          contentContainerStyle={[
-            styles.container,
-            { 
-              paddingHorizontal: isTablet ? 40 : 20,
-              paddingTop: isSmallScreen ? 30 : 40
-            }
-          ]}
+          contentContainerStyle={styles.container}
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
 
-          {/* Назад */}
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={[
-              styles.backButtonCircle,
+          {/* Текущий город */}
+          <View style={styles.settingGroup}>
+            <Text style={[styles.groupLabel, { color: isDark ? '#fff' : '#000' }]}>
+              Текущее местоположение
+            </Text>
+            <View style={[
+              styles.cityInfoContainer,
               { 
-                backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)',
-                width: isSmallScreen ? 45 : 45,
-                height: isSmallScreen ? 45 : 45,
-                borderRadius: isSmallScreen ? 22.5 : 22.5,
-                marginBottom: isSmallScreen ? 15 : 20
-              },
-            ]}
-          >
-            <Ionicons 
-              name="chevron-back" 
-              size={isSmallScreen ? 18 : 20} 
-              color={isDark ? '#fff' : '#000'} 
-            />
-          </TouchableOpacity>
-
-          {/* Заголовок */}
-          <Text style={[
-            styles.title, 
-            { 
-              color: isDark ? '#fff' : '#000',
-              fontSize: isTablet ? 32 : (isSmallScreen ? 22 : 26),
-              marginBottom: isSmallScreen ? 20 : 30
-            }
-          ]}>
-            Настройки
-          </Text>
-
-          {/* Темная тема */}
-          <View style={[styles.settingRow, { marginTop: isSmallScreen ? 15 : 20 }]}>
-            <Text style={[
-              styles.label, 
-              { 
-                color: isDark ? '#fff' : '#000',
-                fontSize: isTablet ? 20 : (isSmallScreen ? 14 : 16),
-                flex: 1
+                backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'
               }
             ]}>
+              <Text style={[
+                styles.currentCityText, 
+                { color: isDark ? '#fff' : '#000' }
+              ]}>
+                {currentCity}
+              </Text>
+            </View>
+
+            {/* Кнопки управления городом */}
+            <View style={styles.cityButtonsContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.cityButton,
+                  { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.2)' : 'rgba(33, 150, 243, 0.1)' }
+                ]}
+                onPress={() => {
+                  closeAllDropdowns();
+                  setShowCitySearch(!showCitySearch);
+                }}
+              >
+                <Ionicons name="search" size={16} color="#2196F3" />
+                <Text style={[styles.cityButtonText, { color: '#2196F3' }]}>
+                  Выбрать город
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.cityButton,
+                  { 
+                    backgroundColor: isDark ? 'rgba(76, 175, 80, 0.2)' : 'rgba(76, 175, 80, 0.1)',
+                    opacity: isLoadingLocation ? 0.6 : 1
+                  }
+                ]}
+                onPress={handleAutoLocation}
+                disabled={isLoadingLocation}
+              >
+                <Ionicons 
+                  name={isLoadingLocation ? "time" : "location"} 
+                  size={16} 
+                  color="#4CAF50" 
+                />
+                <Text style={[styles.cityButtonText, { color: '#4CAF50' }]}>
+                  {isLoadingLocation ? 'Определение...' : 'Автолокация'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Поиск города */}
+            {showCitySearch && (
+              <View style={styles.citySearchContainer}>
+                <TextInput
+                  placeholder="Введите название города"
+                  placeholderTextColor={isDark ? '#ccc' : '#666'}
+                  value={searchCity}
+                  onChangeText={async (text) => {
+                    setSearchCity(text);
+                    if (text.length > 2) {
+                      try {
+                        const results = await searchCityByName(text);
+                        setSearchResults(results);
+                      } catch (error) {
+                        console.log('Поиск недоступен:', error);
+                        setSearchResults([]);
+                      }
+                    } else {
+                      setSearchResults([]);
+                    }
+                  }}
+                  style={[
+                    styles.citySearchInput,
+                    {
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                      color: isDark ? '#fff' : '#000',
+                      borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)',
+                    }
+                  ]}
+                />
+
+                {/* Результаты поиска */}
+                {searchResults.length > 0 && (
+                  <View style={[
+                    styles.citySearchResults,
+                    { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+                  ]}>
+                    <ScrollView 
+                      showsVerticalScrollIndicator={false}
+                      style={{ maxHeight: 150 }}
+                    >
+                      {searchResults.map((item, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          onPress={() => handleCitySelect(item)}
+                          style={[
+                            styles.citySearchResultItem,
+                            { 
+                              borderBottomWidth: index === searchResults.length - 1 ? 0 : 1,
+                              borderBottomColor: isDark ? '#444' : '#eee'
+                            }
+                          ]}
+                        >
+                          <Text style={[
+                            styles.citySearchResultText,
+                            { color: isDark ? '#fff' : '#000' }
+                          ]}>
+                            {(item.local_names?.ru || item.name)}
+                            {item.state ? `, ${item.state}` : ''}, 
+                            {countries.getName(item.country, 'ru') || item.country}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* Темная тема */}
+          <View style={styles.settingRow}>
+            <Text style={[styles.label, { color: isDark ? '#fff' : '#000' }]}>
               Темная тема
             </Text>
             <Switch
               value={isDark}
               onValueChange={toggleTheme}
               color={isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'}
-              style={{ transform: [{ scale: isSmallScreen ? 0.9 : 1 }] }}
             />
           </View>
 
           {/* Геолокация */}
-          <View style={[styles.settingRow, { marginTop: isSmallScreen ? 15 : 20 }]}>
-            <Text style={[
-              styles.label, 
-              { 
-                color: isDark ? '#fff' : '#000',
-                fontSize: isTablet ? 20 : (isSmallScreen ? 14 : 16),
-                flex: 1
-              }
-            ]}>
-              Использовать геолокацию
+          <View style={styles.settingRow}>
+            <Text style={[styles.label, { color: isDark ? '#fff' : '#000' }]}>
+              Использовать геолокацию в поиске
             </Text>
             <Switch
               value={useGeo}
@@ -278,224 +769,452 @@ export default function SettingsScreen({ navigation }) {
                 updateSetting('useGeo', value.toString());
               }}
               color={isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'}
-              style={{ transform: [{ scale: isSmallScreen ? 0.9 : 1 }] }}
             />
           </View>
 
           {/* Температура */}
-          <Text style={[
-            styles.label, 
-            { 
-              color: isDark ? '#fff' : '#000',
-              fontSize: isTablet ? 20 : (isSmallScreen ? 14 : 16),
-              marginTop: isSmallScreen ? 20 : 25
-            }
-          ]}>
-            Температура
-          </Text>
-          <TouchableOpacity
-            style={[
-              styles.grayButton, 
-              { 
-                borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)',
-                height: isSmallScreen ? 45 : (isTablet ? 60 : 50),
-                marginTop: isSmallScreen ? 8 : 10
-              }
-            ]}
-            onPress={() => {
-              closeAllDropdowns();
-              setShowUnitDropdown(!showUnitDropdown);
-            }}
-          >
-            <Text style={[
-              styles.grayLabel, 
-              { 
-                color: isDark ? '#fff' : '#000',
-                fontSize: isTablet ? 18 : (isSmallScreen ? 14 : 16)
-              }
-            ]}>
-              {unit === 'metric' ? '°C (Цельсий)' : '°F (Фаренгейт)'}
+          <View style={styles.settingGroup}>
+            <Text style={[styles.groupLabel, { color: isDark ? '#fff' : '#000' }]}>
+              Температура
             </Text>
-          </TouchableOpacity>
-          {showUnitDropdown && (
-            <DropdownList
-              items={[
-                { label: '°C (Цельсий)', value: 'metric' },
-                { label: '°F (Фаренгейт)', value: 'imperial' },
-              ]}
-              onSelect={(value) => {
-                setUnit(value);
-                updateSetting('unit', value);
-              }}
-              onClose={() => setShowUnitDropdown(false)}
-            />
-          )}
-
-          {/* Скорость ветра */}
-          <Text style={[
-            styles.label, 
-            { 
-              color: isDark ? '#fff' : '#000',
-              fontSize: isTablet ? 20 : (isSmallScreen ? 14 : 16),
-              marginTop: isSmallScreen ? 20 : 25
-            }
-          ]}>
-            Скорость ветра
-          </Text>
-          <TouchableOpacity
-            style={[
-              styles.grayButton, 
-              { 
-                borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)',
-                height: isSmallScreen ? 45 : (isTablet ? 60 : 50),
-                marginTop: isSmallScreen ? 8 : 10
-              }
-            ]}
-            onPress={() => {
-              closeAllDropdowns();
-              setShowWindDropdown(!showWindDropdown);
-            }}
-          >
-            <Text style={[
-              styles.grayLabel, 
-              { 
-                color: isDark ? '#fff' : '#000',
-                fontSize: isTablet ? 18 : (isSmallScreen ? 14 : 16)
-              }
-            ]}>
-              {getWindUnitLabel(windUnit)}
-            </Text>
-          </TouchableOpacity>
-          {showWindDropdown && (
-            <DropdownList
-              items={[
-                { label: isSmallScreen ? 'м/с' : 'м/с (метры в секунду)', value: 'm/s' },
-                { label: isSmallScreen ? 'км/ч' : 'км/ч (километры в час)', value: 'km/h' },
-                { label: isSmallScreen ? 'mph' : 'mph (мили в час)', value: 'mph' },
-              ]}
-              onSelect={(value) => {
-                setWindUnit(value);
-                updateSetting('windUnit', value);
-              }}
-              onClose={() => setShowWindDropdown(false)}
-            />
-          )}
-
-          {/* Атмосферное давление */}
-          <Text style={[
-            styles.label, 
-            { 
-              color: isDark ? '#fff' : '#000',
-              fontSize: isTablet ? 20 : (isSmallScreen ? 14 : 16),
-              marginTop: isSmallScreen ? 20 : 25
-            }
-          ]}>
-            Атмосферное давление
-          </Text>
-          <TouchableOpacity
-            style={[
-              styles.grayButton, 
-              { 
-                borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)',
-                height: isSmallScreen ? 45 : (isTablet ? 60 : 50),
-                marginTop: isSmallScreen ? 8 : 10,
-              }
-            ]}
-            onPress={() => {
-              closeAllDropdowns();
-              setShowPressureDropdown(!showPressureDropdown);
-            }}
-          >
-            <Text style={[
-              styles.grayLabel, 
-              { 
-                color: isDark ? '#fff' : '#000',
-                fontSize: isTablet ? 18 : (isSmallScreen ? 14 : 16)
-              }
-            ]}>
-              {getPressureUnitLabel(pressureUnit)}
-            </Text>
-          </TouchableOpacity>
-          {showPressureDropdown && (
-            <DropdownList
-              items={[
-                { label: isSmallScreen ? 'мм рт.ст.' : 'мм рт.ст. (миллиметры ртутного столба)', value: 'mmHg' },
-                { label: isSmallScreen ? 'гПа' : 'гПа (гектопаскали)', value: 'hPa' },
-                { label: 'бар', value: 'bar' },
-                { label: isSmallScreen ? 'PSI' : 'PSI (фунты на квадратный дюйм)', value: 'psi' },
-              ]}
-              onSelect={(value) => {
-                setPressureUnit(value);
-                updateSetting('pressureUnit', value);
-              }}
-              onClose={() => setShowPressureDropdown(false)}
-            />
-          )}
-
-          {/* Секция сброса приложения */}
-          <View style={[styles.resetSection, {
-            marginTop: isSmallScreen ? 30 : 40,
-            paddingTop: isSmallScreen ? 20 : 25,
-            borderTopWidth: 1,
-            borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
-          }]}>
-            {/* <Text style={[
-              styles.resetSectionTitle, 
-              { 
-                color: isDark ? '#fff' : '#000',
-                fontSize: isTablet ? 20 : (isSmallScreen ? 14 : 16),
-                marginBottom: isSmallScreen ? 8 : 10
-              }
-            ]}>
-              Сброс
-            </Text> */}
-            {/* <Text style={[
-              styles.resetDescription, 
-              { 
-                color: isDark ? '#aaa' : '#666',
-                fontSize: isTablet ? 16 : (isSmallScreen ? 12 : 14),
-                marginBottom: isSmallScreen ? 15 : 20,
-                lineHeight: isTablet ? 22 : (isSmallScreen ? 16 : 18)
-              }
-            ]}>
-              Сброс приложения удалит все настройки, кэшированные данные и вернет приложение к первоначальному состоянию.
-            </Text> */}
             <TouchableOpacity
               style={[
-                styles.resetButton,
-                { 
-                  backgroundColor: 'rgba(244, 67, 54, 0.1)',
-                  borderColor: '#f44336',
-                  borderWidth: 1,
-                  height: isSmallScreen ? 45 : (isTablet ? 60 : 50),
-                  borderRadius: 10,
-                  justifyContent: 'center',
-                  alignItems: 'center'
-                }
+                styles.dropdownButton, 
+                { borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }
               ]}
+              onPress={() => {
+                closeAllDropdowns();
+                setShowUnitDropdown(!showUnitDropdown);
+              }}
+            >
+              <Text style={[styles.dropdownLabel, { color: isDark ? '#fff' : '#000' }]}>
+                {unit === 'metric' ? '°C (Цельсий)' : '°F (Фаренгейт)'}
+              </Text>
+            </TouchableOpacity>
+            {showUnitDropdown && (
+              <DropdownList
+                items={[
+                  { label: '°C (Цельсий)', value: 'metric' },
+                  { label: '°F (Фаренгейт)', value: 'imperial' },
+                ]}
+                onSelect={(value) => {
+                  setUnit(value);
+                  updateSetting('unit', value);
+                }}
+                onClose={() => setShowUnitDropdown(false)}
+              />
+            )}
+          </View>
+
+          {/* Скорость ветра */}
+          <View style={styles.settingGroup}>
+            <Text style={[styles.groupLabel, { color: isDark ? '#fff' : '#000' }]}>
+              Скорость ветра
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.dropdownButton, 
+                { borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }
+              ]}
+              onPress={() => {
+                closeAllDropdowns();
+                setShowWindDropdown(!showWindDropdown);
+              }}
+            >
+              <Text style={[styles.dropdownLabel, { color: isDark ? '#fff' : '#000' }]}>
+                {getWindUnitLabel(windUnit)}
+              </Text>
+            </TouchableOpacity>
+            {showWindDropdown && (
+              <DropdownList
+                items={[
+                  { label: 'м/с (метры в секунду)', value: 'm/s' },
+                  { label: 'км/ч (километры в час)', value: 'km/h' },
+                  { label: 'mph (мили в час)', value: 'mph' },
+                ]}
+                onSelect={(value) => {
+                  setWindUnit(value);
+                  updateSetting('windUnit', value);
+                }}
+                onClose={() => setShowWindDropdown(false)}
+              />
+            )}
+          </View>
+
+          {/* Атмосферное давление */}
+          <View style={styles.settingGroup}>
+            <Text style={[styles.groupLabel, { color: isDark ? '#fff' : '#000' }]}>
+              Атмосферное давление
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.dropdownButton, 
+                { borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }
+              ]}
+              onPress={() => {
+                closeAllDropdowns();
+                setShowPressureDropdown(!showPressureDropdown);
+              }}
+            >
+              <Text style={[styles.dropdownLabel, { color: isDark ? '#fff' : '#000' }]}>
+                {getPressureUnitLabel(pressureUnit)}
+              </Text>
+            </TouchableOpacity>
+            {showPressureDropdown && (
+              <DropdownList
+                items={[
+                  { label: 'мм рт.ст. (миллиметры ртутного столба)', value: 'mmHg' },
+                  { label: 'гПа (гектопаскали)', value: 'hPa' },
+                  { label: 'бар', value: 'bar' },
+                  { label: 'PSI (фунты на квадратный дюйм)', value: 'psi' },
+                ]}
+                onSelect={(value) => {
+                  setPressureUnit(value);
+                  updateSetting('pressureUnit', value);
+                }}
+                onClose={() => setShowPressureDropdown(false)}
+              />
+            )}
+          </View>
+
+          {/* Видимость */}
+          <View style={styles.settingGroup}>
+            <Text style={[styles.groupLabel, { color: isDark ? '#fff' : '#000' }]}>
+              Видимость
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.dropdownButton, 
+                { borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }
+              ]}
+              onPress={() => {
+                closeAllDropdowns();
+                setShowVisibilityDropdown(!showVisibilityDropdown);
+              }}
+            >
+              <Text style={[styles.dropdownLabel, { color: isDark ? '#fff' : '#000' }]}>
+                {getVisibilityUnitLabel(visibilityUnit)}
+              </Text>
+            </TouchableOpacity>
+            {showVisibilityDropdown && (
+              <DropdownList
+                items={[
+                  { label: 'км (километры)', value: 'km' },
+                  { label: 'м (метры)', value: 'm' },
+                  { label: 'мили', value: 'mi' },
+                ]}
+                onSelect={(value) => {
+                  setVisibilityUnit(value);
+                  updateSetting('visibilityUnit', value);
+                }}
+                onClose={() => setShowVisibilityDropdown(false)}
+              />
+            )}
+          </View>
+
+          {/* Автообновление */}
+          <View style={styles.settingGroup}>
+            <Text style={[styles.groupLabel, { color: isDark ? '#fff' : '#000' }]}>
+              Автообновление данных
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.dropdownButton, 
+                { borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }
+              ]}
+              onPress={() => {
+                closeAllDropdowns();
+                setShowAutoRefreshDropdown(!showAutoRefreshDropdown);
+              }}
+            >
+              <Text style={[styles.dropdownLabel, { color: isDark ? '#fff' : '#000' }]}>
+                {getAutoRefreshLabel(autoRefreshInterval)}
+              </Text>
+            </TouchableOpacity>
+            {showAutoRefreshDropdown && (
+              <DropdownList
+                items={[
+                  { label: 'Каждые 30 минут', value: '30' },
+                  { label: 'Каждый час', value: '60' },
+                  { label: 'Каждые 2 часа', value: '120' },
+                  { label: 'Каждые 4 часа', value: '240' },
+                  { label: 'Каждые 8 часов', value: '480' },
+                  { label: 'Каждые 12 часов', value: '720' },
+                  { label: 'Каждые 24 часа', value: '1440' },
+                ]}
+                onSelect={(value) => {
+                  setAutoRefreshInterval(value);
+                  updateSetting('autoRefreshInterval', value);
+                }}
+                onClose={() => setShowAutoRefreshDropdown(false)}
+              />
+            )}
+          </View>
+
+          {/* Макет карточек погоды */}
+          <View style={styles.settingGroup}>
+            <Text style={[styles.groupLabel, { color: isDark ? '#fff' : '#000' }]}>
+              Отображение карточек
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.dropdownButton, 
+                { borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)' }
+              ]}
+              onPress={() => {
+                closeAllDropdowns();
+                setShowCardsLayoutDropdown(!showCardsLayoutDropdown);
+              }}
+            >
+              <Text style={[styles.dropdownLabel, { color: isDark ? '#fff' : '#000' }]}>
+                {getCardsLayoutLabel(cardsLayout)}
+              </Text>
+            </TouchableOpacity>
+            {showCardsLayoutDropdown && (
+              <DropdownList
+                items={[
+                  { label: 'Горизонтальная прокрутка (1×8)', value: 'horizontal' },
+                  { label: 'Сетка (2×4)', value: 'grid' },
+                  { label: 'Сетка с прокруткой (4×2)', value: 'horizontal_grid' },
+                ]}
+                onSelect={(value) => {
+                  setCardsLayout(value);
+                  updateSetting('cardsLayout', value);
+                }}
+                onClose={() => setShowCardsLayoutDropdown(false)}
+              />
+            )}
+          </View>
+
+          {/* Секция уведомлений */}
+<View style={styles.settingGroup}>
+  <Text style={[styles.groupLabel, { color: isDark ? '#fff' : '#000' }]}>
+    Уведомления о погоде
+  </Text>
+  
+  {/* Уведомления о сегодняшней погоде */}
+  <View style={styles.settingRow}>
+    <Text style={[styles.label, { color: isDark ? '#fff' : '#000', flex: 1 }]}>
+      Погода на сегодня
+    </Text>
+    <Switch
+      value={todayNotificationEnabled}
+      onValueChange={handleTodayNotificationToggle}
+      color={isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'}
+    />
+  </View>
+
+  {/* Время уведомления о сегодняшней погоде */}
+  {todayNotificationEnabled && (
+    <View style={styles.timeSettingContainer}>
+      <TouchableOpacity
+        style={[
+          styles.timeButton,
+          { 
+            backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+            borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'
+          }
+        ]}
+        onPress={() => setShowTodayTimePicker(true)}
+      >
+        <Ionicons name="time-outline" size={20} color={isDark ? '#fff' : '#000'} />
+        <Text style={[styles.timeButtonText, { color: isDark ? '#fff' : '#000' }]}>
+          {todayNotificationTime}
+        </Text>
+      </TouchableOpacity>
+      
+      {/* <TouchableOpacity
+        style={[
+          styles.testButton,
+          { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.2)' : 'rgba(33, 150, 243, 0.1)' }
+        ]}
+        onPress={() => handleTestNotification('today')}
+      >
+        <Ionicons name="notifications-outline" size={16} color="#2196F3" />
+        <Text style={[styles.testButtonText, { color: '#2196F3' }]}>
+          Тест
+        </Text>
+      </TouchableOpacity> */}
+    </View>
+  )}
+
+  {/* Уведомления о завтрашней погоде */}
+  <View style={styles.settingRow}>
+    <Text style={[styles.label, { color: isDark ? '#fff' : '#000', flex: 1 }]}>
+      Погода на завтра
+    </Text>
+    <Switch
+      value={tomorrowNotificationEnabled}
+      onValueChange={handleTomorrowNotificationToggle}
+      color={isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'}
+    />
+  </View>
+
+  {/* Время уведомления о завтрашней погоде */}
+  {tomorrowNotificationEnabled && (
+    <View style={styles.timeSettingContainer}>
+      <TouchableOpacity
+        style={[
+          styles.timeButton,
+          { 
+            backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+            borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'
+          }
+        ]}
+        onPress={() => setShowTomorrowTimePicker(true)}
+      >
+        <Ionicons name="time-outline" size={20} color={isDark ? '#fff' : '#000'} />
+        <Text style={[styles.timeButtonText, { color: isDark ? '#fff' : '#000' }]}>
+          {tomorrowNotificationTime}
+        </Text>
+      </TouchableOpacity>
+      
+      {/* <TouchableOpacity
+        style={[
+          styles.testButton,
+          { backgroundColor: isDark ? 'rgba(76, 175, 80, 0.2)' : 'rgba(76, 175, 80, 0.1)' }
+        ]}
+        onPress={() => handleTestNotification('tomorrow')}
+      >
+        <Ionicons name="notifications-outline" size={16} color="#4CAF50" />
+        <Text style={[styles.testButtonText, { color: '#4CAF50' }]}>
+          Тест
+        </Text>
+      </TouchableOpacity> */}
+    </View>
+  )}
+</View>
+
+{/* DateTimePicker компоненты */}
+{showTodayTimePicker && (
+  <DateTimePicker
+    value={new Date(`2000-01-01T${todayNotificationTime}:00`)}
+    mode="time"
+    is24Hour={true}
+    onChange={handleTodayTimeChange}
+  />
+)}
+
+{showTomorrowTimePicker && (
+  <DateTimePicker
+    value={new Date(`2000-01-01T${tomorrowNotificationTime}:00`)}
+    mode="time"
+    is24Hour={true}
+    onChange={handleTomorrowTimeChange}
+  />
+)}
+
+          {/* Секция сброса приложения */}
+          <View style={styles.resetSection}>
+            <TouchableOpacity
+              style={styles.resetButton}
               onPress={handleResetApp}
             >
               <View style={styles.resetButtonContent}>
                 <Ionicons 
                   name="refresh-outline" 
-                  size={isTablet ? 24 : (isSmallScreen ? 18 : 20)} 
+                  size={20} 
                   color="#f44336"
-                  style={{ marginRight: 8 }}
                 />
-                <Text style={[
-                  styles.resetButtonText, 
-                  { 
-                    color: '#f44336',
-                    fontSize: isTablet ? 18 : (isSmallScreen ? 14 : 16),
-                    fontWeight: '600'
-                  }
-                ]}>
+                <Text style={styles.resetButtonText}>
                   Сбросить приложение
                 </Text>
               </View>
             </TouchableOpacity>
           </View>
 
+          {/* Секция исходного кода */}
+          <View style={styles.sourceCodeSection}>
+            <Text style={[styles.groupLabel, { color: isDark ? '#fff' : '#000' }]}>
+              Исходный код приложения
+            </Text>
+            
+            <TouchableOpacity
+              style={[
+                styles.githubButton,
+                { 
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(36, 41, 46, 0.1)',
+                  borderColor: isDark ? 'rgba(255, 255, 255, 0.3)' : '#24292e'
+                }
+              ]}
+              onPress={handleOpenGitHub}
+            >
+              <View style={styles.githubButtonContent}>
+                <Ionicons 
+                  name="logo-github" 
+                  size={20} 
+                  color={isDark ? '#fff' : '#24292e'}
+                />
+                <Text style={[
+                  styles.githubButtonText,
+                  { color: isDark ? '#fff' : '#24292e' }
+                ]}>
+                  Посмотреть на GitHub
+                </Text>
+                <Ionicons 
+                  name="open-outline" 
+                  size={16} 
+                  color={isDark ? '#ccc' : '#666'}
+                />
+              </View>
+            </TouchableOpacity>
+            
+            <Text style={[
+              styles.sourceCodeDescription, 
+              { color: isDark ? '#aaa' : '#666' }
+            ]}>
+              Исходный код приложения доступен для изучения и внесения предложений
+            </Text>
+          </View>
+
+          {/* Секция политики конфиденциальности */}
+          <View style={styles.privacySection}>
+            <Text style={[styles.groupLabel, { color: isDark ? '#fff' : '#000' }]}>
+              Конфиденциальность
+            </Text>
+            
+            <TouchableOpacity
+              style={[
+                styles.privacyButton,
+                { 
+                  backgroundColor: isDark ? 'rgba(76, 175, 80, 0.1)' : 'rgba(76, 175, 80, 0.1)',
+                  borderColor: isDark ? 'rgba(76, 175, 80, 0.3)' : '#4CAF50'
+                }
+              ]}
+              onPress={handleShowPrivacyPolicy}
+            >
+              <View style={styles.privacyButtonContent}>
+                <Ionicons 
+                  name="shield-checkmark-outline" 
+                  size={20} 
+                  color="#4CAF50"
+                />
+                <Text style={[
+                  styles.privacyButtonText,
+                  { color: '#4CAF50' }
+                ]}>
+                  Политика конфиденциальности
+                </Text>
+                <Ionicons 
+                  name="information-circle-outline" 
+                  size={16} 
+                  color={isDark ? '#4CAF50' : '#4CAF50'}
+                />
+              </View>
+            </TouchableOpacity>
+            
+            <Text style={[
+            styles.privacyDescription, 
+            { color: isDark ? '#aaa' : '#666' }
+          ]}>
+            Независимая разработка без сбора данных и рекламы
+          </Text>
+          </View>
+
+            {/* Версия приложения */}
+            <Text style={[styles.versionText, { color: isDark ? '#aaa' : '#666' }]}>
+              Версия 1.0.5
+            </Text>
         </ScrollView>
       </BlurView>
     </ImageBackground>
@@ -503,81 +1222,300 @@ export default function SettingsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  // Базовые контейнеры
   background: {
     flex: 1,
   },
   blurOverlay: {
     flex: 1,
   },
-  scrollContainer: {
-    flex: 1,
+  
+  // Фиксированная панель навигации
+  fixedHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    paddingHorizontal: 15,
+    paddingTop: 40,
+    paddingBottom: 20,
+    backgroundColor: 'transparent',
   },
-  container: {
-    flexGrow: 1,
-    paddingBottom: 40,
-  },
-  backButtonCircle: {
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'flex-start',
+    display: 'flex',
+    flexDirection: 'row',
   },
   title: {
+    fontSize: 26,
     fontWeight: 'bold',
-    textAlign: 'left',
+    textAlign: 'center',
+    marginTop: 5,
   },
+
+  // Прокручиваемый контент
+  scrollContainer: {
+    flex: 1,
+    marginTop: 130,
+  },
+  container: {
+    flexGrow: 1,
+    paddingHorizontal: 15,
+    paddingTop: 10,
+    paddingBottom: 60,
+    gap: 25,
+  },
+
+  // Настройки с переключателями
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    minHeight: 44,
   },
   label: {
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+  },
+
+  // Группы настроек с выпадающими списками
+  settingGroup: {
+    gap: 10,
+  },
+  groupLabel: {
+    fontSize: 16,
     fontWeight: '500',
   },
-  grayButton: {
+  dropdownButton: {
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderWidth: 1,
     borderRadius: 10,
+    height: 50,
     justifyContent: 'center',
+    paddingHorizontal: 15,
   },
-  grayLabel: {
+  dropdownLabel: {
     textAlign: 'center',
     fontWeight: 'bold',
+    fontSize: 16,
   },
+
+  // Стили для города
+  cityInfoContainer: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    minHeight: 50,
+    justifyContent: 'center',
+  },
+  currentCityText: {
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cityButtonsContainer: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  cityButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderRadius: 10,
+    gap: 6,
+  },
+  cityButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  citySearchContainer: {
+    gap: 10,
+  },
+  citySearchInput: {
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    fontSize: 16,
+    borderWidth: 1,
+    minHeight: 50,
+  },
+  citySearchResults: {
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  citySearchResultItem: {
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    justifyContent: 'center',
+  },
+  citySearchResultText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+
+  // Выпадающие списки
   suggestionList: {
     borderRadius: 20,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    zIndex: 20,
     marginTop: 10,
     overflow: 'hidden',
+    maxHeight: 350,
+  },
+  dropdownContent: {
+    paddingVertical: 6,
   },
   suggestionItem: {
     paddingHorizontal: 15,
+    paddingVertical: 12,
     justifyContent: 'center',
+    minHeight: 44,
   },
   suggestionItemText: {
     textAlign: 'center',
     fontWeight: '500',
+    fontSize: 15,
   },
+
+  // Секция сброса
   resetSection: {
-    // Стили задаются динамически
-  },
-  resetSectionTitle: {
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  resetDescription: {
-    textAlign: 'center',
+    paddingTop: 25,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
   },
   resetButton: {
-    // Стили задаются динамически
+    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+    borderColor: '#f44336',
+    borderWidth: 1,
+    height: 50,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   resetButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
   },
   resetButtonText: {
-    // Стили задаются динамически
+    color: '#f44336',
+    fontSize: 16,
+    fontWeight: '600',
   },
+  versionText: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 10,
+    fontStyle: 'italic',
+  },
+
+  // Секция исходного кода
+  sourceCodeSection: {
+    gap: 12,
+    paddingTop: 25,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+  },
+  githubButton: {
+    borderWidth: 1,
+    height: 50,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  githubButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  githubButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    // Цвет теперь задается динамически в JSX
+  },
+  sourceCodeDescription: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 16,
+    marginTop: 5,
+    fontStyle: 'italic',
+  },
+  // Стили для уведомлений
+timeSettingContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 10,
+  marginTop: 8,
+},
+timeButton: {
+  flex: 1,
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  paddingVertical: 12,
+  paddingHorizontal: 15,
+  borderRadius: 10,
+  borderWidth: 1,
+  gap: 8,
+},
+timeButtonText: {
+  fontSize: 16,
+  fontWeight: '600',
+},
+testButton: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  paddingVertical: 12,
+  paddingHorizontal: 16,
+  borderRadius: 10,
+  gap: 6,
+},
+testButtonText: {
+  fontSize: 14,
+  fontWeight: '600',
+},
+
+// Секция политики конфиденциальности
+privacySection: {
+  gap: 12,
+  paddingTop: 25,
+  borderTopWidth: 1,
+  borderTopColor: 'rgba(255,255,255,0.1)',
+},
+privacyButton: {
+  borderWidth: 1,
+  height: 50,
+  borderRadius: 10,
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+privacyButtonContent: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 10,
+},
+privacyButtonText: {
+  fontSize: 16,
+  fontWeight: '600',
+},
+privacyDescription: {
+  fontSize: 12,
+  textAlign: 'center',
+  lineHeight: 16,
+  marginTop: 5,
+  fontStyle: 'italic',
+},
 });
