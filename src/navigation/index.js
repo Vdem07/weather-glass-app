@@ -93,7 +93,7 @@ export default function Navigation() {
             component={HomeScreen} 
             options={{
               presentation: 'transparentModal',
-              animation: 'slide_from_right',
+              animation: 'slide_from_left',
             }}
           />
           <Stack.Screen 
@@ -101,7 +101,7 @@ export default function Navigation() {
             component={SettingsScreen} 
             options={{
               presentation: 'transparentModal',
-              animation: 'slide_from_right',
+              animation: 'slide_from_left',
             }}
           />
         </Stack.Navigator>
