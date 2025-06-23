@@ -9,6 +9,7 @@ import {
   ImageBackground,
   Alert,
   ScrollView,
+  Image,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { BlurView } from 'expo-blur';
@@ -26,7 +27,7 @@ import { StatusBar } from 'expo-status-bar';
 import countries from 'i18n-iso-countries';
 import ruLocale from 'i18n-iso-countries/langs/ru.json';
 
-import NotificationService from '../services/NotificationService';
+import WeatherIcon from '../components/WeatherIcon';
 
 countries.registerLocale(ruLocale);
 
@@ -67,6 +68,8 @@ export default function HomeScreen({ navigation }) {
   const [countdown, setCountdown] = useState(0);
 
   const [cardsLayout, setCardsLayout] = useState('horizontal');
+
+  const [useStaticIcons, setUseStaticIcons] = useState(false);
 
   // Toast функции
   const showToast = (message, type = 'info') => {
@@ -506,14 +509,15 @@ const formatTime = (totalSeconds) => {
   // Загрузка настроек
   const loadSettings = async () => {
     try {
-      const [geoSetting, unitSetting, windSetting, pressureSetting, visibilitySetting, autoRefreshSetting, cardsLayoutSetting] = await Promise.all([
+      const [geoSetting, unitSetting, windSetting, pressureSetting, visibilitySetting, autoRefreshSetting, cardsLayoutSetting, iconTypeSetting] = await Promise.all([
         AsyncStorage.getItem('useGeo'),
         AsyncStorage.getItem('unit'),
         AsyncStorage.getItem('windUnit'),
         AsyncStorage.getItem('pressureUnit'),
         AsyncStorage.getItem('visibilityUnit'),
         AsyncStorage.getItem('autoRefreshInterval'),
-        AsyncStorage.getItem('cardsLayout') // Добавить эту строку
+        AsyncStorage.getItem('cardsLayout'),
+        AsyncStorage.getItem('useStaticIcons')
       ]);
   
       setUseGeo(geoSetting !== 'false');
@@ -522,7 +526,8 @@ const formatTime = (totalSeconds) => {
       if (pressureSetting) setPressureUnit(pressureSetting);
       if (visibilitySetting) setVisibilityUnit(visibilitySetting);
       if (autoRefreshSetting) setAutoRefreshInterval(autoRefreshSetting);
-      if (cardsLayoutSetting) setCardsLayout(cardsLayoutSetting); // Добавить эту строку
+      if (cardsLayoutSetting) setCardsLayout(cardsLayoutSetting);
+      if (iconTypeSetting) setUseStaticIcons(iconTypeSetting === 'true');
     } catch (error) {
       console.error('Ошибка загрузки настроек:', error);
     }
@@ -596,9 +601,6 @@ const formatTime = (totalSeconds) => {
     (async () => {
       await loadSettings();
       await clearOldCache();
-
-      // Инициализация сервиса уведомлений
-      await NotificationService.initialize();
 
       try {
         const saved = await AsyncStorage.getItem('savedCity');
@@ -1137,11 +1139,13 @@ const weatherCards = [
 
             {/* Центральная часть с анимацией и температурой */}
             <View style={styles.weatherMainContent}>
-              <LottieView
-                source={animation}
-                autoPlay
-                loop
+              <WeatherIcon
+                weatherMain={weather.weather[0].main}
+                weatherDescription={weather.weather[0].description}
                 style={styles.weatherAnimation}
+                width={160}
+                height={160}
+                useStaticIcons={useStaticIcons}
               />
               <Text style={[styles.temp, { color: textColor }]}>
                 {Math.round(convertTemperature(weather.main.temp, tempUnit))}{getTemperatureSymbol(tempUnit)}
@@ -1348,12 +1352,14 @@ const weatherCards = [
                         minute: '2-digit',
                       })}
                     </Text>
-                    <LottieView
-                      source={getWeatherAnimation(item.weather[0].main, item.weather[0].description)}
-                      autoPlay
-                      loop
-                      style={styles.forecastAnimation}
-                    />
+                      <WeatherIcon
+                        weatherMain={item.weather[0].main}
+                        weatherDescription={item.weather[0].description}
+                        style={styles.forecastAnimation}
+                        width={90}
+                        height={90}
+                        useStaticIcons={useStaticIcons}
+                      />
                     <Text style={[styles.forecastDescription, { color: secondaryTextColor }]}>
                       {item.weather[0].description}
                     </Text>
@@ -1392,11 +1398,13 @@ const weatherCards = [
                   </View>
                   
                   <View style={styles.dailyForecastCenter}>
-                    <LottieView
-                      source={getWeatherAnimation(item.main, item.description)}
-                      autoPlay
-                      loop
+                    <WeatherIcon
+                      weatherMain={item.main}
+                      weatherDescription={item.description}
                       style={styles.dailyForecastAnimation}
+                      width={50}
+                      height={50}
+                      useStaticIcons={useStaticIcons}
                     />
                   </View>
                   
@@ -1425,6 +1433,92 @@ const weatherCards = [
               ))}
             </View>
           </View>
+
+          {/* Прогноз для жизни */}
+{/* Прогноз для жизни */}
+<View style={styles.sectionContainer}>
+  <Text style={[styles.sectionTitle, { color: textColor }]}>
+    Для жизни
+  </Text>
+  <View style={styles.lifeCardsContainer}>
+    <FlatList
+      data={[
+        { 
+          id: 'allergy', 
+          icon: require('../assets/icons/allergy.png'), // Цветок с пыльцой
+          title: 'Аллергия', 
+          color: '#FF9800' 
+        },
+        { 
+          id: 'driving', 
+          icon: require('../assets/icons/driving.png'), // Машина под дождем
+          title: 'На дорогах', 
+          color: '#2196F3' 
+        },
+        { 
+          id: 'fishing', 
+          icon: require('../assets/icons/fishing.png'), // Рыба с удочкой
+          title: 'Рыбалка', 
+          color: '#00BCD4' 
+        },
+        { 
+          id: 'water_recreation', 
+          icon: require('../assets/icons/swimming.png'), // Пловец в воде
+          title: 'Отдых у воды', 
+          color: '#03A9F4' 
+        },
+        { 
+          id: 'gardening', 
+          icon: require('../assets/icons/gardening.png'), // Растение с лопатой
+          title: 'Сад и огород', 
+          color: '#4CAF50' 
+        },
+        { 
+          id: 'running', 
+          icon: require('../assets/icons/running.png'), // Бегущий человек
+          title: 'Бег', 
+          color: '#F44336' 
+        },
+      ]}
+      horizontal
+      keyExtractor={(item) => item.id}
+      contentContainerStyle={styles.lifeCardsList}
+      showsHorizontalScrollIndicator={false}
+      renderItem={({ item }) => (
+        <TouchableOpacity
+          style={[
+            styles.lifeCard,
+            { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+          ]}
+          onPress={() => navigation.navigate('LifeActivity', { 
+            activityType: item.id, 
+            title: item.title,
+            color: item.color,
+            weather: weather,
+            forecast: forecast,
+            hourlyForecast: hourlyForecast,
+            tempUnit: tempUnit,
+            windUnit: windUnit,
+            pressureUnit: pressureUnit,
+            visibilityUnit: visibilityUnit
+          })}
+        >
+          <View style={[styles.lifeCardIcon, { backgroundColor: item.color }]}>
+            <Image 
+              source={item.icon} 
+              style={styles.lifeCardIconImage}
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={[styles.lifeCardTitle, { color: textColor }]}>
+            {item.title}
+          </Text>
+        </TouchableOpacity>
+      )}
+    />
+  </View>
+</View>
+
         </ScrollView>
 
         {/* Toast уведомление */}
@@ -1662,7 +1756,7 @@ progressBarFill: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 10,
+    gap: 12,
     paddingHorizontal: 15,
   },
   weatherCardGrid: {
@@ -1705,7 +1799,6 @@ progressBarFill: {
     alignItems: 'flex-start',
   },
   cardIconWrapper: {
-    marginLeft: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1901,5 +1994,47 @@ progressBarFill: {
     fontSize: 16,
     fontWeight: '500',
     textAlign: 'center',
+  },
+  
+  // Карточки для жизни
+  lifeCardsContainer: {
+    minHeight: 150,
+  },
+  lifeCardsList: {
+    paddingHorizontal: 15,
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  lifeCard: {
+    alignItems: 'center',
+    borderRadius: 16,
+    padding: 18,
+    width: 110,
+    minHeight: 130,
+    gap: 10,
+  },
+  lifeCardIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lifeCardTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+
+  lifeCardIconImage: {
+    width: 28,
+    height: 28,
+    tintColor: '#fff', // Делает иконку белой
+  },
+  activityIconImage: {
+    width: 24,
+    height: 24,
+    tintColor: '#fff', // Делает иконку белой
   },
 });
