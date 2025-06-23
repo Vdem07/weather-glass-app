@@ -2,7 +2,7 @@
   "expo": {
     "name": "Погода",
     "slug": "WeatherGlassApp",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -56,14 +56,7 @@
     },
     "owner": "vadim23dem",
     "plugins": [
-      "expo-splash-screen",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#ffffff"
-        }
-      ]
+      "expo-splash-screen"
     ]
   }
 }

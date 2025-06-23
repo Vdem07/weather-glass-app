@@ -23,9 +23,6 @@ import { searchCityByName, getCurrentWeather } from '../api/weather';
 import countries from 'i18n-iso-countries';
 import ruLocale from 'i18n-iso-countries/langs/ru.json';
 
-import NotificationService from '../services/NotificationService';
-import DateTimePicker from '@react-native-community/datetimepicker';
-
 countries.registerLocale(ruLocale);
 
 export default function SettingsScreen({ navigation }) {
@@ -53,16 +50,10 @@ export default function SettingsScreen({ navigation }) {
   const [autoRefreshInterval, setAutoRefreshInterval] = useState('30'); // в минутах
   const [showAutoRefreshDropdown, setShowAutoRefreshDropdown] = useState(false);
 
-  // Состояния для уведомлений
-  const [todayNotificationEnabled, setTodayNotificationEnabled] = useState(false);
-  const [tomorrowNotificationEnabled, setTomorrowNotificationEnabled] = useState(false);
-  const [todayNotificationTime, setTodayNotificationTime] = useState('08:00');
-  const [tomorrowNotificationTime, setTomorrowNotificationTime] = useState('20:00');
-  const [showTodayTimePicker, setShowTodayTimePicker] = useState(false);
-  const [showTomorrowTimePicker, setShowTomorrowTimePicker] = useState(false);
-
   const [cardsLayout, setCardsLayout] = useState('horizontal'); // 'horizontal' для 1x8, 'grid' для 2x4
   const [showCardsLayoutDropdown, setShowCardsLayoutDropdown] = useState(false);
+
+  const [useStaticIcons, setUseStaticIcons] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -74,16 +65,7 @@ export default function SettingsScreen({ navigation }) {
       const savedVisibility = await AsyncStorage.getItem('visibilityUnit');
       const savedAutoRefresh = await AsyncStorage.getItem('autoRefreshInterval');
       const savedCardsLayout = await AsyncStorage.getItem('cardsLayout');
-
-      const savedTodayEnabled = await AsyncStorage.getItem('todayWeatherNotificationEnabled');
-      const savedTomorrowEnabled = await AsyncStorage.getItem('tomorrowWeatherNotificationEnabled');
-      const savedTodayTime = await AsyncStorage.getItem('todayWeatherNotificationTime');
-      const savedTomorrowTime = await AsyncStorage.getItem('tomorrowWeatherNotificationTime');
-
-      setTodayNotificationEnabled(savedTodayEnabled === 'true');
-      setTomorrowNotificationEnabled(savedTomorrowEnabled === 'true');
-      if (savedTodayTime) setTodayNotificationTime(savedTodayTime);
-      if (savedTomorrowTime) setTomorrowNotificationTime(savedTomorrowTime);
+      const savedIconType = await AsyncStorage.getItem('useStaticIcons');
   
       setUseGeo(geo !== 'false');
       if (citySaved) setCity(citySaved);
@@ -93,43 +75,11 @@ export default function SettingsScreen({ navigation }) {
       if (savedVisibility) setVisibilityUnit(savedVisibility);
       if (savedAutoRefresh) setAutoRefreshInterval(savedAutoRefresh);
       if (savedCardsLayout) setCardsLayout(savedCardsLayout);
+      setUseStaticIcons(savedIconType === 'true');
   
       await loadCurrentCity();
     })();
   }, []);
-
-  // Функции для работы с уведомлениями
-const handleTodayNotificationToggle = async (value) => {
-  setTodayNotificationEnabled(value);
-  await updateSetting('todayWeatherNotificationEnabled', value.toString());
-  await NotificationService.restartTimers();
-};
-
-const handleTomorrowNotificationToggle = async (value) => {
-  setTomorrowNotificationEnabled(value);
-  await updateSetting('tomorrowWeatherNotificationEnabled', value.toString());
-  await NotificationService.restartTimers();
-};
-
-const handleTodayTimeChange = async (event, selectedTime) => {
-  setShowTodayTimePicker(false);
-  if (selectedTime) {
-    const timeString = selectedTime.toTimeString().slice(0, 5);
-    setTodayNotificationTime(timeString);
-    await updateSetting('todayWeatherNotificationTime', timeString);
-    await NotificationService.restartTimers();
-  }
-};
-
-const handleTomorrowTimeChange = async (event, selectedTime) => {
-  setShowTomorrowTimePicker(false);
-  if (selectedTime) {
-    const timeString = selectedTime.toTimeString().slice(0, 5);
-    setTomorrowNotificationTime(timeString);
-    await updateSetting('tomorrowWeatherNotificationTime', timeString);
-    await NotificationService.restartTimers();
-  }
-};
 
 // Функция для получения лейбла макета:
 const getCardsLayoutLabel = (layout) => {
@@ -142,22 +92,6 @@ const getCardsLayoutLabel = (layout) => {
       return 'Сетка с прокруткой (4×2)';
     default:
       return 'Горизонтальная прокрутка (1×8)';
-  }
-};
-
-// Функция для отправки тестового уведомления
-const handleTestNotification = async (type) => {
-  try {
-    await NotificationService.sendTestNotification(type);
-    Alert.alert(
-      'Тестовое уведомление',
-      'Уведомление отправлено! Проверьте панель уведомлений.'
-    );
-  } catch (error) {
-    Alert.alert(
-      'Ошибка',
-      'Не удалось отправить уведомление. Проверьте разрешения в настройках устройства.'
-    );
   }
 };
 
@@ -772,6 +706,21 @@ const handleCitySelect = async (cityData) => {
             />
           </View>
 
+          {/* Тип иконок погоды */}
+          <View style={styles.settingRow}>
+            <Text style={[styles.label, { color: isDark ? '#fff' : '#000' }]}>
+              Статичные иконки погоды
+            </Text>
+            <Switch
+              value={useStaticIcons}
+              onValueChange={(value) => {
+                setUseStaticIcons(value);
+                updateSetting('useStaticIcons', value.toString());
+              }}
+              color={isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'}
+            />
+          </View>
+
           {/* Температура */}
           <View style={styles.settingGroup}>
             <Text style={[styles.groupLabel, { color: isDark ? '#fff' : '#000' }]}>
@@ -986,124 +935,6 @@ const handleCitySelect = async (cityData) => {
             )}
           </View>
 
-          {/* Секция уведомлений */}
-<View style={styles.settingGroup}>
-  <Text style={[styles.groupLabel, { color: isDark ? '#fff' : '#000' }]}>
-    Уведомления о погоде
-  </Text>
-  
-  {/* Уведомления о сегодняшней погоде */}
-  <View style={styles.settingRow}>
-    <Text style={[styles.label, { color: isDark ? '#fff' : '#000', flex: 1 }]}>
-      Погода на сегодня
-    </Text>
-    <Switch
-      value={todayNotificationEnabled}
-      onValueChange={handleTodayNotificationToggle}
-      color={isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'}
-    />
-  </View>
-
-  {/* Время уведомления о сегодняшней погоде */}
-  {todayNotificationEnabled && (
-    <View style={styles.timeSettingContainer}>
-      <TouchableOpacity
-        style={[
-          styles.timeButton,
-          { 
-            backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-            borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'
-          }
-        ]}
-        onPress={() => setShowTodayTimePicker(true)}
-      >
-        <Ionicons name="time-outline" size={20} color={isDark ? '#fff' : '#000'} />
-        <Text style={[styles.timeButtonText, { color: isDark ? '#fff' : '#000' }]}>
-          {todayNotificationTime}
-        </Text>
-      </TouchableOpacity>
-      
-      {/* <TouchableOpacity
-        style={[
-          styles.testButton,
-          { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.2)' : 'rgba(33, 150, 243, 0.1)' }
-        ]}
-        onPress={() => handleTestNotification('today')}
-      >
-        <Ionicons name="notifications-outline" size={16} color="#2196F3" />
-        <Text style={[styles.testButtonText, { color: '#2196F3' }]}>
-          Тест
-        </Text>
-      </TouchableOpacity> */}
-    </View>
-  )}
-
-  {/* Уведомления о завтрашней погоде */}
-  <View style={styles.settingRow}>
-    <Text style={[styles.label, { color: isDark ? '#fff' : '#000', flex: 1 }]}>
-      Погода на завтра
-    </Text>
-    <Switch
-      value={tomorrowNotificationEnabled}
-      onValueChange={handleTomorrowNotificationToggle}
-      color={isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'}
-    />
-  </View>
-
-  {/* Время уведомления о завтрашней погоде */}
-  {tomorrowNotificationEnabled && (
-    <View style={styles.timeSettingContainer}>
-      <TouchableOpacity
-        style={[
-          styles.timeButton,
-          { 
-            backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-            borderColor: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'
-          }
-        ]}
-        onPress={() => setShowTomorrowTimePicker(true)}
-      >
-        <Ionicons name="time-outline" size={20} color={isDark ? '#fff' : '#000'} />
-        <Text style={[styles.timeButtonText, { color: isDark ? '#fff' : '#000' }]}>
-          {tomorrowNotificationTime}
-        </Text>
-      </TouchableOpacity>
-      
-      {/* <TouchableOpacity
-        style={[
-          styles.testButton,
-          { backgroundColor: isDark ? 'rgba(76, 175, 80, 0.2)' : 'rgba(76, 175, 80, 0.1)' }
-        ]}
-        onPress={() => handleTestNotification('tomorrow')}
-      >
-        <Ionicons name="notifications-outline" size={16} color="#4CAF50" />
-        <Text style={[styles.testButtonText, { color: '#4CAF50' }]}>
-          Тест
-        </Text>
-      </TouchableOpacity> */}
-    </View>
-  )}
-</View>
-
-{/* DateTimePicker компоненты */}
-{showTodayTimePicker && (
-  <DateTimePicker
-    value={new Date(`2000-01-01T${todayNotificationTime}:00`)}
-    mode="time"
-    is24Hour={true}
-    onChange={handleTodayTimeChange}
-  />
-)}
-
-{showTomorrowTimePicker && (
-  <DateTimePicker
-    value={new Date(`2000-01-01T${tomorrowNotificationTime}:00`)}
-    mode="time"
-    is24Hour={true}
-    onChange={handleTomorrowTimeChange}
-  />
-)}
-
           {/* Секция сброса приложения */}
           <View style={styles.resetSection}>
             <TouchableOpacity
@@ -1213,7 +1044,7 @@ const handleCitySelect = async (cityData) => {
 
             {/* Версия приложения */}
             <Text style={[styles.versionText, { color: isDark ? '#aaa' : '#666' }]}>
-              Версия 1.0.5
+              Версия 1.0.6
             </Text>
         </ScrollView>
       </BlurView>
@@ -1451,41 +1282,6 @@ const styles = StyleSheet.create({
     marginTop: 5,
     fontStyle: 'italic',
   },
-  // Стили для уведомлений
-timeSettingContainer: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  gap: 10,
-  marginTop: 8,
-},
-timeButton: {
-  flex: 1,
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'center',
-  paddingVertical: 12,
-  paddingHorizontal: 15,
-  borderRadius: 10,
-  borderWidth: 1,
-  gap: 8,
-},
-timeButtonText: {
-  fontSize: 16,
-  fontWeight: '600',
-},
-testButton: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'center',
-  paddingVertical: 12,
-  paddingHorizontal: 16,
-  borderRadius: 10,
-  gap: 6,
-},
-testButtonText: {
-  fontSize: 14,
-  fontWeight: '600',
-},
 
 // Секция политики конфиденциальности
 privacySection: {

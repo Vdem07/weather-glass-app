@@ -9,6 +9,7 @@ import { useThemeContext } from '../theme/ThemeContext';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import HomeScreen from '../screens/HomeScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import LifeActivityScreen from '../screens/LifeActivityScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -93,7 +94,7 @@ export default function Navigation() {
             component={HomeScreen} 
             options={{
               presentation: 'transparentModal',
-              animation: 'slide_from_left',
+              animation: 'fade',
             }}
           />
           <Stack.Screen 
@@ -101,7 +102,15 @@ export default function Navigation() {
             component={SettingsScreen} 
             options={{
               presentation: 'transparentModal',
-              animation: 'slide_from_left',
+              animation: 'fade',
+            }}
+          />
+          <Stack.Screen 
+            name="LifeActivity" 
+            component={LifeActivityScreen} 
+            options={{
+              presentation: 'transparentModal',
+              animation: 'fade_from_bottom',
             }}
           />
         </Stack.Navigator>
