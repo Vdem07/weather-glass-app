@@ -76,10 +76,13 @@ EXPO_PUBLIC_OPENWEATHER_API_KEY=ваш_ключ
 
 ## 📷 Скриншоты
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/4e60646d-0b1a-475d-b327-a560fe471365" width="300" />
-  <img src="https://github.com/user-attachments/assets/c5fe1042-bd43-477b-903e-661d0bac03b2" width="300" />
-  <img src="https://github.com/user-attachments/assets/f62fa3b2-d310-4c2a-9269-fb321ad86ac5" width="300" />
-  <img src="https://github.com/user-attachments/assets/b0220496-1c0c-497b-80cb-2d324d323298" width="300" />
+  <img src="https://github.com/user-attachments/assets/f1a2acd6-ef38-42be-bf12-771e446b987c" width="300" />
+  <img src="https://github.com/user-attachments/assets/0b49417c-b331-4233-bddf-070c1d8846d9" width="300" />
+  <img src="https://github.com/user-attachments/assets/74a8b3bd-c9f2-4036-965f-9e4423f9644c" width="300" />
+  <img src="https://github.com/user-attachments/assets/76f7297e-7f62-4743-b54f-689624ba586f" width="300" />
+  <img src="https://github.com/user-attachments/assets/37ae7019-7c2a-4fe2-a3ef-9b5498463eee" width="300" />
+  <img src="https://github.com/user-attachments/assets/3e96dbd4-b2b6-4a36-aa87-75b331895262" width="300" />
+  <img src="https://github.com/user-attachments/assets/2d0542ff-18ab-4a30-8bcb-cd494df4e652" width="300" />
 </p>
 
 ---
