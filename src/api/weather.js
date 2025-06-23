@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_KEY = 'f24d4864f20da298fdd9ec2436343f99'; // вставь свой ключ от OpenWeather
+const API_KEY = process.env.EXPO_PUBLIC_OPENWEATHER_API_KEY; // вставь свой ключ от OpenWeather
 
 const BASE_URL = 'https://api.openweathermap.org/data/2.5';
 
