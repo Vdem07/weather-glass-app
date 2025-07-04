@@ -83,6 +83,8 @@ EXPO_PUBLIC_OPENWEATHER_API_KEY=ваш_ключ
   <img src="https://github.com/user-attachments/assets/37ae7019-7c2a-4fe2-a3ef-9b5498463eee" width="300" />
   <img src="https://github.com/user-attachments/assets/3e96dbd4-b2b6-4a36-aa87-75b331895262" width="300" />
   <img src="https://github.com/user-attachments/assets/2d0542ff-18ab-4a30-8bcb-cd494df4e652" width="300" />
+  <img src="https://github.com/user-attachments/assets/cdaa328e-265e-4579-b9ba-96a6d0d6807a" width="300" />
+  <img src="https://github.com/user-attachments/assets/c75337fe-08ef-4e3f-9f09-77aae14a79e8" width="300" />
   <img src="https://github.com/user-attachments/assets/ced8992d-01c2-4d1d-a211-00092dbefee7" width="300" />
   <img src="https://github.com/user-attachments/assets/b909048f-0b38-4131-aff9-b561441d2760" width="300" />
 </p>
