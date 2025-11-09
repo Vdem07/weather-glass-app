@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,14 @@ import {
   ImageBackground,
   Alert,
   ScrollView,
+  Image,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { BlurView } from 'expo-blur';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import LottieView from 'lottie-react-native';
-import { getCurrentWeather, getDailyForecast, getHourlyForecast } from '../api/weather';
+import { getCurrentWeather, getDailyForecast, getHourlyForecast, getUVIndex, getCurrentWeatherWithDewPoint, calculateDewPoint } from '../api/weather';
 import getWeatherAnimation from '../utils/getWeatherAnimation';
 import renderWeatherIcon from '../components/renderWeatherIcon'
 import { useThemeContext } from '../theme/ThemeContext';
@@ -23,10 +25,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { searchCityByName } from '../api/weather';
 import { StatusBar } from 'expo-status-bar';
 
+import LazyMapWidget from '../components/LazyMapWidget';
+
+import { SimpleVpnBanner, DismissibleVpnBanner, CompactVpnBanner, AnimatedVpnBanner } from '../components/VPNBanner';
+
+import WebView from 'react-native-webview';
+
 import countries from 'i18n-iso-countries';
 import ruLocale from 'i18n-iso-countries/langs/ru.json';
 
-import NotificationService from '../services/NotificationService';
+import WeatherIcon from '../components/WeatherIcon';
 
 countries.registerLocale(ruLocale);
 
@@ -67,6 +75,12 @@ export default function HomeScreen({ navigation }) {
   const [countdown, setCountdown] = useState(0);
 
   const [cardsLayout, setCardsLayout] = useState('horizontal');
+
+  const [useStaticIcons, setUseStaticIcons] = useState(false);
+
+  const [dewPoint, setDewPoint] = useState(null);
+
+  const [showLifeSection, setShowLifeSection] = useState(true);
 
   // Toast функции
   const showToast = (message, type = 'info') => {
@@ -434,18 +448,19 @@ const formatTime = (totalSeconds) => {
   // Функции для работы с кэшем
   const getCacheKey = (lat, lon) => `weather_cache_${lat.toFixed(4)}_${lon.toFixed(4)}`;
 
-  const saveWeatherToCache = async (lat, lon, weatherData, forecastData, hourlyData) => {
+  const saveWeatherToCache = async (lat, lon, weatherData, forecastData, hourlyData, dewPointData) => {
     try {
       const cacheKey = getCacheKey(lat, lon);
       const cacheData = {
         weather: weatherData,
         forecast: forecastData,
         hourly: hourlyData,
+        dewPoint: dewPointData || weatherData.dew_point || null, // Исправлено: правильно сохраняем точку росы
         timestamp: Date.now(),
         coordinates: { lat, lon }
       };
       await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheData));
-      console.log('Погодные данные сохранены в кэш');
+      console.log('Погодные данные сохранены в кэш, точка росы:', cacheData.dewPoint);
     } catch (error) {
       console.error('Ошибка сохранения в кэш:', error);
     }
@@ -460,8 +475,7 @@ const formatTime = (totalSeconds) => {
         const parsedData = JSON.parse(cachedData);
         const cacheAge = Date.now() - parsedData.timestamp;
         
-        // Получаем настройку автообновления (в минутах)
-        const refreshInterval = parseInt(autoRefreshInterval) * 60 * 1000; // конвертируем в миллисекунды
+        const refreshInterval = parseInt(autoRefreshInterval) * 60 * 1000;
         
         console.log(`Найден кэш, возраст: ${Math.round(cacheAge / 1000 / 60)} минут`);
         console.log(`Интервал обновления: ${autoRefreshInterval} минут`);
@@ -470,7 +484,8 @@ const formatTime = (totalSeconds) => {
           weather: parsedData.weather,
           forecast: parsedData.forecast,
           hourly: parsedData.hourly,
-          isExpired: cacheAge > refreshInterval // используем настройку пользователя
+          dewPoint: parsedData.dewPoint || null, // Добавляем точку росы
+          isExpired: cacheAge > refreshInterval
         };
       }
       return null;
@@ -506,14 +521,15 @@ const formatTime = (totalSeconds) => {
   // Загрузка настроек
   const loadSettings = async () => {
     try {
-      const [geoSetting, unitSetting, windSetting, pressureSetting, visibilitySetting, autoRefreshSetting, cardsLayoutSetting] = await Promise.all([
+      const [geoSetting, unitSetting, windSetting, pressureSetting, visibilitySetting, autoRefreshSetting, cardsLayoutSetting, iconTypeSetting] = await Promise.all([
         AsyncStorage.getItem('useGeo'),
         AsyncStorage.getItem('unit'),
         AsyncStorage.getItem('windUnit'),
         AsyncStorage.getItem('pressureUnit'),
         AsyncStorage.getItem('visibilityUnit'),
         AsyncStorage.getItem('autoRefreshInterval'),
-        AsyncStorage.getItem('cardsLayout') // Добавить эту строку
+        AsyncStorage.getItem('cardsLayout'),
+        AsyncStorage.getItem('useStaticIcons')
       ]);
   
       setUseGeo(geoSetting !== 'false');
@@ -522,7 +538,8 @@ const formatTime = (totalSeconds) => {
       if (pressureSetting) setPressureUnit(pressureSetting);
       if (visibilitySetting) setVisibilityUnit(visibilitySetting);
       if (autoRefreshSetting) setAutoRefreshInterval(autoRefreshSetting);
-      if (cardsLayoutSetting) setCardsLayout(cardsLayoutSetting); // Добавить эту строку
+      if (cardsLayoutSetting) setCardsLayout(cardsLayoutSetting);
+      if (iconTypeSetting) setUseStaticIcons(iconTypeSetting === 'true');
     } catch (error) {
       console.error('Ошибка загрузки настроек:', error);
     }
@@ -539,6 +556,7 @@ const formatTime = (totalSeconds) => {
           setWeather(cachedData.weather);
           setForecast(cachedData.forecast);
           setHourlyForecast(cachedData.hourly);
+          setDewPoint(cachedData.dewPoint); // Устанавливаем точку росы из кэша
           setIsOffline(true);
           setLoading(false);
           
@@ -550,24 +568,33 @@ const formatTime = (totalSeconds) => {
         }
       }
   
-      const current = await getCurrentWeather(lat, lon);
-      const daily = await getDailyForecast(lat, lon);
-      const hourlyRaw = await getHourlyForecast(lat, lon);
+      // Получаем все данные параллельно
+      const [current, daily, hourlyRaw] = await Promise.all([
+        getCurrentWeatherWithDewPoint(lat, lon), // Используем функцию с точкой росы
+        getDailyForecast(lat, lon),
+        getHourlyForecast(lat, lon),
+      ]);
   
-      // const today = new Date().toDateString();
+      // Если точка росы не получена из API, рассчитываем её
+      if (!current.dew_point && current.main?.temp && current.main?.humidity) {
+        current.dew_point = calculateDewPoint(current.main.temp, current.main.humidity);
+      }
+  
       const hourly = hourlyRaw.list.filter(item =>
         new Date(item.dt_txt).toDateString()
       );
   
-      await saveWeatherToCache(lat, lon, current, daily, hourly);
+      // Исправлено: правильно передаем точку росы в функцию сохранения
+      await saveWeatherToCache(lat, lon, current, daily, hourly, current.dew_point);
       
       setWeather(current);
       setForecast(daily);
       setHourlyForecast(hourly);
+      setDewPoint(current.dew_point); // Устанавливаем точку росы
       setIsOffline(false);
       setLoading(false);
       
-      console.log('Данные загружены из API и сохранены в кэш');
+      console.log('Данные загружены из API и сохранены в кэш, точка росы:', current.dew_point);
       
       if (forceOnline) {
         showToast('Данные обновлены', 'success');
@@ -581,6 +608,7 @@ const formatTime = (totalSeconds) => {
         setWeather(cachedData.weather);
         setForecast(cachedData.forecast);
         setHourlyForecast(cachedData.hourly);
+        setDewPoint(cachedData.dewPoint); // Устанавливаем точку росы из кэша
         setIsOffline(true);
         setLoading(false);
         
@@ -591,14 +619,39 @@ const formatTime = (totalSeconds) => {
       }
     }
   };
+  
+  useEffect(() => {
+    const loadLifeSectionSetting = async () => {
+      try {
+        const savedLifeSection = await AsyncStorage.getItem('showLifeSection');
+        setShowLifeSection(savedLifeSection !== 'false');
+      } catch (error) {
+        console.error('Ошибка загрузки настройки секции "Для жизни":', error);
+      }
+    };
+  
+    loadLifeSectionSetting();
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      const loadLifeSectionSetting = async () => {
+        try {
+          const savedLifeSection = await AsyncStorage.getItem('showLifeSection');
+          setShowLifeSection(savedLifeSection !== 'false');
+        } catch (error) {
+          console.error('Ошибка загрузки настройки секции "Для жизни":', error);
+        }
+      };
+  
+      loadLifeSectionSetting();
+    }, [])
+  );
 
   useEffect(() => {
     (async () => {
       await loadSettings();
       await clearOldCache();
-
-      // Инициализация сервиса уведомлений
-      await NotificationService.initialize();
 
       try {
         const saved = await AsyncStorage.getItem('savedCity');
@@ -771,55 +824,190 @@ const formatTime = (totalSeconds) => {
     }
   };
 
-  // Функция для получения интерпретации значений
+// Функция для получения интерпретации значений
 const getWeatherInterpretation = (type, value, weather) => {
   switch (type) {
     case 'pressure':
       const pressureValue = convertPressure(weather.main.pressure, pressureUnit);
-      if (pressureUnit === 'mmHg') {
-        if (pressureValue < 740) return 'Низкое давление';
-        if (pressureValue > 770) return 'Высокое давление';
-        return 'Давление в норме';
-      } else if (pressureUnit === 'hPa') {
-        if (pressureValue < 1013) return 'Низкое давление';
-        if (pressureValue > 1025) return 'Высокое давление';
-        return 'Давление в норме';
+      
+      // Адаптивные пороговые значения для разных единиц измерения
+      let lowThreshold, highThreshold;
+      
+      switch (pressureUnit) {
+        case 'mmHg':
+          lowThreshold = 740;
+          highThreshold = 770;
+          break;
+        case 'hPa':
+          lowThreshold = 987;  // 740 mmHg в hPa
+          highThreshold = 1027; // 770 mmHg в hPa
+          break;
+        case 'bar':
+          lowThreshold = 0.987;
+          highThreshold = 1.027;
+          break;
+        case 'psi':
+          lowThreshold = 14.3;
+          highThreshold = 14.9;
+          break;
+        default:
+          lowThreshold = 740;
+          highThreshold = 770;
       }
+      
+      if (pressureValue < lowThreshold) return 'Низкое давление';
+      if (pressureValue > highThreshold) return 'Высокое давление';
       return 'Давление в норме';
     
     case 'humidity':
-      if (value < 30) return 'Воздух сухой';
-      if (value > 70) return 'Влажность очень высокая';
-      if (value > 60) return 'Влажность высокая';
+      if (value < 30) return 'Воздух очень сухой';
+      if (value < 40) return 'Воздух сухой';
+      if (value > 80) return 'Влажность очень высокая';
+      if (value > 70) return 'Влажность высокая';
+      if (value > 60) return 'Влажность повышенная';
       return 'Влажность нормальная';
     
     case 'wind':
       const windSpeed = convertWindSpeed(weather.wind.speed, windUnit);
-      if (windSpeed < 2) return 'Штиль';
-      if (windSpeed < 5) return 'Легкий ветер';
-      if (windSpeed < 10) return 'Умеренный ветер';
-      if (windSpeed < 15) return 'Свежий ветер';
-      return 'Сильный ветер';
+      
+      // Адаптивные пороговые значения для разных единиц измерения
+      let lightThreshold, moderateThreshold, freshThreshold, strongThreshold;
+      
+      switch (windUnit) {
+        case 'm/s':
+          lightThreshold = 2;
+          moderateThreshold = 5;
+          freshThreshold = 10;
+          strongThreshold = 15;
+          break;
+        case 'km/h':
+          lightThreshold = 7.2;  // 2 м/с = 7.2 км/ч
+          moderateThreshold = 18; // 5 м/с = 18 км/ч
+          freshThreshold = 36;    // 10 м/с = 36 км/ч
+          strongThreshold = 54;   // 15 м/с = 54 км/ч
+          break;
+        case 'mph':
+          lightThreshold = 4.5;   // 2 м/с = 4.5 mph
+          moderateThreshold = 11.2; // 5 м/с = 11.2 mph
+          freshThreshold = 22.4;  // 10 м/с = 22.4 mph
+          strongThreshold = 33.6; // 15 м/с = 33.6 mph
+          break;
+        default:
+          lightThreshold = 2;
+          moderateThreshold = 5;
+          freshThreshold = 10;
+          strongThreshold = 15;
+      }
+      
+      if (windSpeed < lightThreshold) return 'Штиль';
+      if (windSpeed < moderateThreshold) return 'Легкий ветер';
+      if (windSpeed < freshThreshold) return 'Умеренный ветер';
+      if (windSpeed < strongThreshold) return 'Свежий ветер';
+      if (windSpeed < strongThreshold * 1.5) return 'Сильный ветер';
+      return 'Очень сильный ветер';
     
     case 'clouds':
       if (value < 10) return 'Ясно';
-      if (value < 30) return 'Малооблачно';
-      if (value < 70) return 'Облачно';
+      if (value < 25) return 'Малооблачно';
+      if (value < 50) return 'Переменная облачность';
+      if (value < 75) return 'Облачно';
       return 'Пасмурно';
     
     case 'visibility':
       if (!weather.visibility) return 'Видимость хорошая';
-      if (weather.visibility < 1000) return 'Видимость плохая';
-      if (weather.visibility < 5000) return 'Видимость ограничена';
+      
+      const visibility = weather.visibility; // в метрах
+      const visibilityConverted = convertVisibility(visibility, visibilityUnit);
+      const visibilityValue = parseFloat(visibilityConverted.split(' ')[0]);
+      
+      // Адаптивные пороговые значения для разных единиц измерения
+      let poorThreshold, limitedThreshold, goodThreshold;
+      
+      switch (visibilityUnit) {
+        case 'km':
+          poorThreshold = 1;    // 1 км = 1000 м
+          limitedThreshold = 5; // 5 км = 5000 м
+          goodThreshold = 10;   // 10 км = 10000 м
+          break;
+        case 'm':
+          poorThreshold = 1000;
+          limitedThreshold = 5000;
+          goodThreshold = 10000;
+          break;
+        case 'mi':
+          poorThreshold = 0.62;  // 1000 м ≈ 0.62 мили
+          limitedThreshold = 3.11; // 5000 м ≈ 3.11 мили
+          goodThreshold = 6.21;  // 10000 м ≈ 6.21 мили
+          break;
+        default:
+          poorThreshold = 1;
+          limitedThreshold = 5;
+          goodThreshold = 10;
+      }
+      
+      if (visibilityValue < poorThreshold) return 'Видимость очень плохая';
+      if (visibilityValue < limitedThreshold) return 'Видимость ограничена';
+      if (visibilityValue < goodThreshold) return 'Видимость хорошая';
       return 'Видимость отличная';
     
     case 'precipitation':
       const prob = parseInt(value);
       if (prob === 0) return 'Осадков не ожидается';
-      if (prob < 30) return 'Осадки маловероятны';
+      if (prob < 20) return 'Осадки маловероятны';
+      if (prob < 50) return 'Небольшая вероятность осадков';
       if (prob < 70) return 'Возможны осадки';
-      return 'Осадки ожидаются';
+      if (prob < 90) return 'Осадки ожидаются';
+      return 'Осадки неизбежны';
     
+    case 'temperature':
+      // Добавляем интерпретацию температуры
+      const temp = convertTemperature(value, tempUnit);
+      const tempSymbol = getTemperatureSymbol(tempUnit);
+      
+      // Пороговые значения в зависимости от единиц измерения
+      let freezingThreshold, coldThreshold, coolThreshold, warmThreshold, hotThreshold;
+      
+      if (tempUnit === 'imperial') {
+        freezingThreshold = 32;  // 0°C = 32°F
+        coldThreshold = 50;      // 10°C = 50°F
+        coolThreshold = 68;      // 20°C = 68°F
+        warmThreshold = 77;      // 25°C = 77°F
+        hotThreshold = 86;       // 30°C = 86°F
+      } else {
+        freezingThreshold = 0;
+        coldThreshold = 10;
+        coolThreshold = 20;
+        warmThreshold = 25;
+        hotThreshold = 30;
+      }
+      
+      if (temp < freezingThreshold) return 'Заморозки';
+      if (temp < coldThreshold) return 'Холодно';
+      if (temp < coolThreshold) return 'Прохладно';
+      if (temp < warmThreshold) return 'Комфортно';
+      if (temp < hotThreshold) return 'Тепло';
+      return 'Жарко';
+    
+    case 'uv':
+      // Добавляем интерпретацию UV индекса
+      const uvValue = parseInt(value);
+      if (uvValue <= 2) return 'Низкий UV';
+      if (uvValue <= 5) return 'Умеренный UV';
+      if (uvValue <= 7) return 'Высокий UV';
+      if (uvValue <= 10) return 'Очень высокий UV';
+      return 'Экстремальный UV';
+      
+    case 'dew_point':
+      if (!value) return 'Данные недоступны';
+      
+      const tempCelsius = weather.main.temp;
+      const dewPointDiff = tempCelsius - value;
+      
+      if (dewPointDiff < 2) return 'Очень высокая влажность - возможен туман';
+      if (dewPointDiff < 5) return 'Высокая влажность - дискомфорт';
+      if (dewPointDiff < 10) return 'Умеренная влажность';
+      return 'Сухой воздух - комфортно';
+
     default:
       return '';
   }
@@ -856,7 +1044,26 @@ const getIndicatorColor = (type, value, weather) => {
       if (prob > 70) return '#2196F3';
       if (prob > 30) return '#ff8800';
       return '#4CAF50';
-    
+
+    case 'uv':
+      const uvValue = parseInt(value) || 0;
+      if (uvValue <= 2) return '#4CAF50';
+      if (uvValue <= 5) return '#FFC107';
+      if (uvValue <= 7) return '#FF9800';
+      if (uvValue <= 10) return '#f44336';
+      return '#9C27B0'; // Экстремальный UV
+
+    case 'dew_point':
+      if (!value || !weather?.main?.temp) return '#999';
+      
+      const tempCelsius = weather.main.temp;
+      const dewPointDiff = tempCelsius - value;
+      
+      if (dewPointDiff < 2) return '#2196F3'; // Высокая влажность - синий
+      if (dewPointDiff < 5) return '#FF9800'; // Умеренная влажность - оранжевый
+      if (dewPointDiff < 10) return '#4CAF50'; // Комфортно - зеленый
+      return '#FFC107'; // Сухо - желтый
+
     default:
       return '#4CAF50';
   }
@@ -910,6 +1117,15 @@ const weatherCards = [
     color: getIndicatorColor('humidity', weather.main.humidity, weather)
   },
   {
+    id: 'dew_point',
+    icon: 'water',
+    title: 'Точка росы',
+    value: dewPoint ? `${Math.round(convertTemperature(dewPoint, tempUnit))}${getTemperatureSymbol(tempUnit)}` : 'Н/Д',
+    subtitle: 'Температура конденсации',
+    interpretation: getWeatherInterpretation('dew_point', dewPoint, weather),
+    color: getIndicatorColor('dew_point', dewPoint, weather)
+  },
+  {
     id: 'pressure',
     icon: 'thermometer',
     title: 'Давление',
@@ -926,6 +1142,15 @@ const weatherCards = [
     subtitle: 'Покрытие неба облаками',
     interpretation: getWeatherInterpretation('clouds', weather.clouds?.all || 0, weather),
     color: getIndicatorColor('clouds', weather.clouds?.all || 0, weather)
+  },
+  {
+    id: 'uv',
+    icon: 'sun',
+    title: 'UV индекс',
+    value: weather.uv_index !== undefined ? `${weather.uv_index}/11` : 'Н/Д',
+    subtitle: 'Ультрафиолетовое излучение',
+    interpretation: getWeatherInterpretation('uv', weather.uv_index || 0, weather),
+    color: getIndicatorColor('uv', weather.uv_index || 0, weather)
   },
   {
     id: 'sunrise',
@@ -1137,11 +1362,13 @@ const weatherCards = [
 
             {/* Центральная часть с анимацией и температурой */}
             <View style={styles.weatherMainContent}>
-              <LottieView
-                source={animation}
-                autoPlay
-                loop
+              <WeatherIcon
+                weatherMain={weather.weather[0].main}
+                weatherDescription={weather.weather[0].description}
                 style={styles.weatherAnimation}
+                width={160}
+                height={160}
+                useStaticIcons={useStaticIcons}
               />
               <Text style={[styles.temp, { color: textColor }]}>
                 {Math.round(convertTemperature(weather.main.temp, tempUnit))}{getTemperatureSymbol(tempUnit)}
@@ -1155,6 +1382,7 @@ const weatherCards = [
               <Text style={[styles.lastUpdateText, { color: secondaryTextColor }]}>
                 Обновлено {getLastUpdateTime(weather)}
               </Text>
+              {/* <CompactVpnBanner isDark={isDark} /> */}
             </View>
             </View>
 
@@ -1164,7 +1392,9 @@ const weatherCards = [
                 onPress={() => 
                   Alert.alert(
                     "Источник данных", 
-                    "Данные о погоде предоставляются бесплатным API OpenWeatherMap 2.5",
+                    "Данные о погоде предоставляются бесплатным API OpenWeatherMap 2.5: " + "https://openweathermap.org/" + "\n\n" +
+                    "Индекс UV предоставляется отдельным бесплатным API WeatherAPI: " + "https://www.weatherapi.com/" + "\n\n" +
+                    "Пожалуйста, учитывайте, что данные могут быть неточными и отличаться от реальных условий.",
                     [
                       {
                         text: "OK",
@@ -1184,146 +1414,176 @@ const weatherCards = [
             </View>
           </View>
 
-          {/* Детали погоды */}
-          <View style={styles.detailsSection}>
-            <Text style={[styles.sectionTitle, { color: textColor }]}>
-              Детали погоды
+{/* Детали погоды */}
+<View style={styles.detailsSection}>
+  <Text style={[styles.sectionTitle, { color: textColor }]}>
+    Детали погоды
+  </Text>
+  
+  {cardsLayout === 'compact' ? (
+    // Компактный блок со всеми параметрами в сетке 5×2
+    <BlurView intensity={40} style={[
+      styles.detailsContainer,
+      { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }
+    ]}>
+      <View style={styles.compactGrid}>
+        {weatherCards.map((item) => (
+          <View key={item.id} style={styles.detailItem}>
+            {renderWeatherIcon(item.id, 24)}
+            <Text 
+              style={[styles.detailTitle, { color: textColor }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit={true}
+              minimumFontScale={0.8}
+            >
+              {item.title}
             </Text>
-            
-            {cardsLayout === 'grid' ? (
-              // Сетка 2x4
-              <View style={styles.weatherCardsGrid}>
-                {weatherCards.map((item) => (
-                  <BlurView 
-                    key={item.id}
-                    intensity={40} 
-                    style={[
-                      styles.weatherCardGrid,
-                      { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
-                    ]}
-                  >
-                    {/* Верхняя секция - название и иконка */}
-                    <View style={styles.cardTopSection}>
-                      <View style={styles.cardLeftSection}>
-                        <Text style={[styles.cardTitle, { color: textColor }]}>
-                          {item.title}
-                        </Text>
-                        <Text style={[styles.cardValue, { color: textColor }]}>
-                          {item.value}
-                        </Text>
-                        {/* Дополнительная информация (subtitle) */}
-                        {item.subtitle && (
-                          <Text style={[styles.cardSubtitleText, { color: secondaryTextColor }]}>
-                            {item.subtitle}
-                          </Text>
-                        )}
-                      </View>
-                      
-                      <View style={styles.cardIconWrapper}>
-                        {renderWeatherIcon(item.id, 38)}
-                      </View>
-                    </View>
-                    
-                    {/* Нижняя секция - интерпретация по центру */}
-                    <View style={styles.cardBottomSection}>
-                      <Text style={[styles.cardInterpretation, { color: secondaryTextColor }]}>
-                        {item.interpretation}
-                      </Text>
-                    </View>
-                  </BlurView>
-                ))}
-              </View>
-            ) : cardsLayout === 'horizontal_grid' ? (
-              // Сетка 4x2 с горизонтальной прокруткой
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.weatherCardsHorizontalGrid}>
-                  {weatherCards.map((item) => (
-                    <BlurView 
-                      key={item.id}
-                      intensity={40} 
-                      style={[
-                        styles.weatherCardHorizontalGrid,
-                        { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
-                      ]}
-                    >
-                      {/* Верхняя секция - название и иконка */}
-                      <View style={styles.cardTopSection}>
-                        <View style={styles.cardLeftSection}>
-                          <Text style={[styles.cardTitle, { color: textColor }]}>
-                            {item.title}
-                          </Text>
-                          <Text style={[styles.cardValue, { color: textColor }]}>
-                            {item.value}
-                          </Text>
-                          {/* Дополнительная информация (subtitle) */}
-                          {item.subtitle && (
-                            <Text style={[styles.cardSubtitleText, { color: secondaryTextColor }]}>
-                              {item.subtitle}
-                            </Text>
-                          )}
-                        </View>
-                        
-                        <View style={styles.cardIconWrapper}>
-                          {renderWeatherIcon(item.id, 38)}
-                        </View>
-                      </View>
-                      
-                      {/* Нижняя секция - интерпретация по центру */}
-                      <View style={styles.cardBottomSection}>
-                        <Text style={[styles.cardInterpretation, { color: secondaryTextColor }]}>
-                          {item.interpretation}
-                        </Text>
-                      </View>
-                    </BlurView>
-                  ))}
-                </View>
-              </ScrollView>
-            ) : (
-              // Горизонтальная прокрутка 1x8
-              <FlatList
-                data={weatherCards}
-                horizontal
-                keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.weatherCardsList}
-                showsHorizontalScrollIndicator={false}
-                renderItem={({ item }) => (
-                  <BlurView intensity={40} style={[
-                    styles.weatherCardHorizontal,
-                    { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
-                  ]}>
-                    {/* Верхняя секция - название и иконка */}
-                    <View style={styles.cardTopSection}>
-                      <View style={styles.cardLeftSection}>
-                        <Text style={[styles.cardTitle, { color: textColor }]}>
-                          {item.title}
-                        </Text>
-                        <Text style={[styles.cardValue, { color: textColor }]}>
-                          {item.value}
-                        </Text>
-                        {/* Дополнительная информация (subtitle) */}
-                        {item.subtitle && (
-                          <Text style={[styles.cardSubtitleText, { color: secondaryTextColor }]}>
-                            {item.subtitle}
-                          </Text>
-                        )}
-                      </View>
-                      
-                      <View style={styles.cardIconWrapper}>
-                        {renderWeatherIcon(item.id, 38)}
-                      </View>
-                    </View>
-                    
-                    {/* Нижняя секция - интерпретация по центру */}
-                    <View style={styles.cardBottomSection}>
-                      <Text style={[styles.cardInterpretation, { color: secondaryTextColor }]}>
-                        {item.interpretation}
-                      </Text>
-                    </View>
-                  </BlurView>
-                )}
-              />
-            )}
+            <Text 
+              style={[styles.detailText, { color: textColor }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit={true}
+              minimumFontScale={0.8}
+            >
+              {item.value}
+            </Text>
           </View>
+        ))}
+      </View>
+    </BlurView>
+  ) : cardsLayout === 'grid' ? (
+    // Сетка 2x4
+    <View style={styles.weatherCardsGrid}>
+      {weatherCards.map((item) => (
+        <BlurView 
+          key={item.id}
+          intensity={40} 
+          style={[
+            styles.weatherCardGrid,
+            { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+          ]}
+        >
+          {/* Верхняя секция - название и иконка */}
+          <View style={styles.cardTopSection}>
+            <View style={styles.cardLeftSection}>
+              <Text style={[styles.cardTitle, { color: textColor }]}>
+                {item.title}
+              </Text>
+              <Text style={[styles.cardValue, { color: textColor }]}>
+                {item.value}
+              </Text>
+              {/* Дополнительная информация (subtitle) */}
+              {item.subtitle && (
+                <Text style={[styles.cardSubtitleText, { color: secondaryTextColor }]}>
+                  {item.subtitle}
+                </Text>
+              )}
+            </View>
+            
+            <View style={styles.cardIconWrapper}>
+              {renderWeatherIcon(item.id, 38)}
+            </View>
+          </View>
+          
+          {/* Нижняя секция - интерпретация по центру */}
+          <View style={styles.cardBottomSection}>
+            <Text style={[styles.cardInterpretation, { color: secondaryTextColor }]}>
+              {item.interpretation}
+            </Text>
+          </View>
+        </BlurView>
+      ))}
+    </View>
+  ) : cardsLayout === 'horizontal_grid' ? (
+    // Сетка 4x2 с горизонтальной прокруткой
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <View style={styles.weatherCardsHorizontalGrid}>
+        {weatherCards.map((item) => (
+          <BlurView 
+            key={item.id}
+            intensity={40} 
+            style={[
+              styles.weatherCardHorizontalGrid,
+              { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+            ]}
+          >
+            {/* Верхняя секция - название и иконка */}
+            <View style={styles.cardTopSection}>
+              <View style={styles.cardLeftSection}>
+                <Text style={[styles.cardTitle, { color: textColor }]}>
+                  {item.title}
+                </Text>
+                <Text style={[styles.cardValue, { color: textColor }]}>
+                  {item.value}
+                </Text>
+                {/* Дополнительная информация (subtitle) */}
+                {item.subtitle && (
+                  <Text style={[styles.cardSubtitleText, { color: secondaryTextColor }]}>
+                    {item.subtitle}
+                  </Text>
+                )}
+              </View>
+              
+              <View style={styles.cardIconWrapper}>
+                {renderWeatherIcon(item.id, 38)}
+              </View>
+            </View>
+            
+            {/* Нижняя секция - интерпретация по центру */}
+            <View style={styles.cardBottomSection}>
+              <Text style={[styles.cardInterpretation, { color: secondaryTextColor }]}>
+                {item.interpretation}
+              </Text>
+            </View>
+          </BlurView>
+        ))}
+      </View>
+    </ScrollView>
+  ) : (
+    // Горизонтальная прокрутка 1x8
+    <FlatList
+      data={weatherCards}
+      horizontal
+      keyExtractor={(item) => item.id}
+      contentContainerStyle={styles.weatherCardsList}
+      showsHorizontalScrollIndicator={false}
+      renderItem={({ item }) => (
+        <BlurView intensity={40} style={[
+          styles.weatherCardHorizontal,
+          { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+        ]}>
+          {/* Верхняя секция - название и иконка */}
+          <View style={styles.cardTopSection}>
+            <View style={styles.cardLeftSection}>
+              <Text style={[styles.cardTitle, { color: textColor }]}>
+                {item.title}
+              </Text>
+              <Text style={[styles.cardValue, { color: textColor }]}>
+                {item.value}
+              </Text>
+              {/* Дополнительная информация (subtitle) */}
+              {item.subtitle && (
+                <Text style={[styles.cardSubtitleText, { color: secondaryTextColor }]}>
+                  {item.subtitle}
+                </Text>
+              )}
+            </View>
+            
+            <View style={styles.cardIconWrapper}>
+              {renderWeatherIcon(item.id, 38)}
+            </View>
+          </View>
+          
+          {/* Нижняя секция - интерпретация по центру */}
+          <View style={styles.cardBottomSection}>
+            <Text style={[styles.cardInterpretation, { color: secondaryTextColor }]}>
+              {item.interpretation}
+            </Text>
+          </View>
+        </BlurView>
+      )}
+    />
+  )}
+</View>
 
           {/* Почасовой прогноз */}
           <View style={styles.sectionContainer}>
@@ -1348,12 +1608,14 @@ const weatherCards = [
                         minute: '2-digit',
                       })}
                     </Text>
-                    <LottieView
-                      source={getWeatherAnimation(item.weather[0].main, item.weather[0].description)}
-                      autoPlay
-                      loop
-                      style={styles.forecastAnimation}
-                    />
+                      <WeatherIcon
+                        weatherMain={item.weather[0].main}
+                        weatherDescription={item.weather[0].description}
+                        style={styles.forecastAnimation}
+                        width={90}
+                        height={90}
+                        useStaticIcons={useStaticIcons}
+                      />
                     <Text style={[styles.forecastDescription, { color: secondaryTextColor }]}>
                       {item.weather[0].description}
                     </Text>
@@ -1392,11 +1654,13 @@ const weatherCards = [
                   </View>
                   
                   <View style={styles.dailyForecastCenter}>
-                    <LottieView
-                      source={getWeatherAnimation(item.main, item.description)}
-                      autoPlay
-                      loop
+                    <WeatherIcon
+                      weatherMain={item.main}
+                      weatherDescription={item.description}
                       style={styles.dailyForecastAnimation}
+                      width={50}
+                      height={50}
+                      useStaticIcons={useStaticIcons}
                     />
                   </View>
                   
@@ -1425,6 +1689,105 @@ const weatherCards = [
               ))}
             </View>
           </View>
+
+          {/* Прогноз для жизни */}
+                  {showLifeSection && (
+          <View style={styles.sectionContainer}>
+            <Text style={[styles.sectionTitle, { color: textColor }]}>
+              Для жизни
+            </Text>
+            <View style={styles.lifeCardsContainer}>
+              <FlatList
+                data={[
+                  { 
+                    id: 'allergy', 
+                    icon: require('../assets/icons/allergy.png'), 
+                    title: 'Аллергия', 
+                    color: '#FF9800' 
+                  },
+                  { 
+                    id: 'driving', 
+                    icon: require('../assets/icons/driving.png'), 
+                    title: 'На дорогах', 
+                    color: '#2196F3' 
+                  },
+                  { 
+                    id: 'fishing', 
+                    icon: require('../assets/icons/fishing.png'), 
+                    title: 'Рыбалка', 
+                    color: '#00BCD4' 
+                  },
+                  { 
+                    id: 'water_recreation', 
+                    icon: require('../assets/icons/swimming.png'), 
+                    title: 'Отдых у воды', 
+                    color: '#03A9F4' 
+                  },
+                  { 
+                    id: 'gardening', 
+                    icon: require('../assets/icons/gardening.png'), 
+                    title: 'Сад и огород', 
+                    color: '#4CAF50' 
+                  },
+                  { 
+                    id: 'running', 
+                    icon: require('../assets/icons/running.png'), 
+                    title: 'Бег', 
+                    color: '#F44336' 
+                  },
+                ]}
+                horizontal
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.lifeCardsList}
+                showsHorizontalScrollIndicator={false}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.lifeCard,
+                      { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+                    ]}
+                    onPress={() => navigation.navigate('LifeActivity', { 
+                      activityType: item.id, 
+                      title: item.title,
+                      color: item.color,
+                      weather: weather,
+                      forecast: forecast,
+                      hourlyForecast: hourlyForecast,
+                      uvIndex: weather.uv_index || 0,
+                      dewPoint: dewPoint,
+                      tempUnit: tempUnit,
+                      windUnit: windUnit,
+                      pressureUnit: pressureUnit,
+                      visibilityUnit: visibilityUnit
+                    })}
+                  >
+                    <View style={[styles.lifeCardIcon, { backgroundColor: item.color }]}>
+                      <Image 
+                        source={item.icon} 
+                        style={styles.lifeCardIconImage}
+                        resizeMode="contain"
+                      />
+                    </View>
+                    <Text style={[styles.lifeCardTitle, { color: textColor }]}>
+                      {item.title}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          </View>
+        )}
+
+  {/* Виджет карты осадков */}
+  <LazyMapWidget 
+    weather={weather}
+    isDark={isDark}
+    textColor={textColor}
+    secondaryTextColor={secondaryTextColor}
+    countries={countries}
+    navigation={navigation}
+  />
+
         </ScrollView>
 
         {/* Toast уведомление */}
@@ -1662,7 +2025,7 @@ progressBarFill: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 10,
+    gap: 12,
     paddingHorizontal: 15,
   },
   weatherCardGrid: {
@@ -1705,7 +2068,6 @@ progressBarFill: {
     alignItems: 'flex-start',
   },
   cardIconWrapper: {
-    marginLeft: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1902,4 +2264,147 @@ progressBarFill: {
     fontWeight: '500',
     textAlign: 'center',
   },
+  
+  // Карточки для жизни
+  lifeCardsContainer: {
+    minHeight: 130,
+  },
+  lifeCardsList: {
+    paddingHorizontal: 15,
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  lifeCard: {
+    alignItems: 'center',
+    borderRadius: 16,
+    padding: 18,
+    width: 110,
+    minHeight: 130,
+    gap: 10,
+  },
+  lifeCardIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lifeCardTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+
+  lifeCardIconImage: {
+    width: 28,
+    height: 28,
+    tintColor: '#fff', // Делает иконку белой
+  },
+  activityIconImage: {
+    width: 24,
+    height: 24,
+    tintColor: '#fff', // Делает иконку белой
+  },
+
+  // Виджет карты
+// Виджет карты
+MapContainer: {
+  minHeight: 270,
+},
+mapWidget: {
+  marginHorizontal: 15,
+  borderRadius: 20,
+  padding: 20,
+  overflow: 'hidden',
+},
+mapWidgetHeader: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: 15,
+},
+mapWidgetTitleContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 10,
+},
+mapWidgetTitle: {
+  fontSize: 18,
+  fontWeight: '600',
+},
+mapWidgetPreview: {
+  height: 120,
+  borderRadius: 12,
+  overflow: 'hidden',
+  marginBottom: 15,
+  position: 'relative',
+},
+// Оверлей поверх карты
+mapOverlay: {
+  position: 'absolute',
+  top: 8,
+  right: 8,
+  zIndex: 1000,
+},
+weatherBadge: {
+  paddingHorizontal: 8,
+  paddingVertical: 4,
+  borderRadius: 8,
+  backdropFilter: 'blur(10px)',
+},
+weatherBadgeText: {
+  fontSize: 12,
+  fontWeight: '600',
+},
+mapWidgetInfo: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+},
+mapInfoItem: {
+  flexDirection: 'col',
+  alignItems: 'center',
+  gap: 4,
+},
+mapInfoText: {
+  fontSize: 12,
+  fontWeight: '500',
+},
+
+// Стили для компактного блока
+detailsContainer: {
+  marginHorizontal: 15,
+  paddingVertical: 20,
+  paddingHorizontal: 15,
+  borderRadius: 20,
+  overflow: 'hidden',
+},
+compactGrid: {
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  justifyContent: 'space-around',
+  alignItems: 'flex-start',
+  rowGap: 20,
+  columnGap: 5,
+},
+detailItem: {
+  width: '23%', // 4 элемента в ряду с промежутками
+  minWidth: 65,
+  alignItems: 'center',
+  gap: 6,
+},
+detailTitle: {
+  fontSize: 10,
+  fontWeight: '600',
+  textAlign: 'center',
+  opacity: 0.8,
+},
+detailText: {
+  fontSize: 12,
+  fontWeight: '500',
+  textAlign: 'center',
+},
+// Убираем неиспользуемые стили
+// mapPreviewBackground, mapGrid, mapGridLine, precipitationDot, locationMarker, locationDot, locationPulse - больше не нужны
 });

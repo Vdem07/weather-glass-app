@@ -2,7 +2,7 @@
   "expo": {
     "name": "Погода",
     "slug": "WeatherGlassApp",
-    "version": "1.0.5",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -58,10 +58,44 @@
     "plugins": [
       "expo-splash-screen",
       [
-        "expo-notifications",
+        "react-native-android-widget",
         {
-          "icon": "./assets/notification-icon.png",
-          "color": "#ffffff"
+          "fonts": [],
+          "widgets": [
+            {
+              "name": "SmallWeather",
+              "label": "Погода: Компактный",
+              "minWidth": "128dp",
+              "minHeight": "60dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 1,
+              "description": "Компактный виджет с текущей погодой",
+              "previewImage": "./assets/widget-preview/small-weather.png",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "MediumWeather",
+              "label": "Погода: Средний",
+              "minWidth": "256dp",
+              "minHeight": "120dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "description": "Средний виджет с прогнозом на 3 дня",
+              "previewImage": "./assets/widget-preview/medium-weather.png",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "LargeWeather",
+              "label": "Погода: Большой",
+              "minWidth": "256dp",
+              "minHeight": "180dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 3,
+              "description": "Большой виджет с прогнозом на 3 дня и детальными показателями",
+              "previewImage": "./assets/widget-preview/large-weather.png",
+              "updatePeriodMillis": 1800000
+            }
+          ]
         }
       ]
     ]

@@ -9,6 +9,9 @@ import { useThemeContext } from '../theme/ThemeContext';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import HomeScreen from '../screens/HomeScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import LifeActivityScreen from '../screens/LifeActivityScreen';
+import WeatherMapScreen from '../screens/WeatherMapScreen';
+import WidgetPreviewScreen from '../screens/WidgetPreviewScreen'; // Добавляем новый экран
 
 const Stack = createNativeStackNavigator();
 
@@ -93,7 +96,7 @@ export default function Navigation() {
             component={HomeScreen} 
             options={{
               presentation: 'transparentModal',
-              animation: 'slide_from_left',
+              animation: 'fade',
             }}
           />
           <Stack.Screen 
@@ -101,7 +104,33 @@ export default function Navigation() {
             component={SettingsScreen} 
             options={{
               presentation: 'transparentModal',
-              animation: 'slide_from_left',
+              animation: 'fade',
+            }}
+          />
+          <Stack.Screen 
+            name="LifeActivity" 
+            component={LifeActivityScreen} 
+            options={{
+              presentation: 'transparentModal',
+              animation: 'fade',
+            }}
+          />
+          <Stack.Screen 
+            name="WeatherMap" 
+            component={WeatherMapScreen}
+            options={{
+              headerShown: false, // Скрываем стандартный заголовок, так как у нас свой
+              presentation: 'transparentModal', // Опционально: показать как модальное окно
+              animation: 'fade',
+            }}
+          />
+          <Stack.Screen 
+            name="WidgetPreview" 
+            component={WidgetPreviewScreen}
+            options={{
+              headerShown: false,
+              presentation: 'transparentModal',
+              animation: 'fade',
             }}
           />
         </Stack.Navigator>
