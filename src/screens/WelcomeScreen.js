@@ -29,6 +29,7 @@ export default function WelcomeScreen({ navigation }) {
   const [searchCity, setSearchCity] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [vpnAlertShown, setVpnAlertShown] = useState(false);
   const { isDark } = useThemeContext();
 
   const backgroundImage = isDark
@@ -40,6 +41,54 @@ export default function WelcomeScreen({ navigation }) {
   const secondaryTextColor = isDark ? '#aaa' : '#666';
   const placeholderColor = isDark ? 'lightgray' : '#999';
   const iconColor = isDark ? '#fff' : '#333';
+
+  // Проверяем первый запуск и показываем VPN предупреждение
+  useEffect(() => {
+    const checkFirstLaunchAndShowVpnAlert = async () => {
+      try {
+        const isFirstLaunch = await AsyncStorage.getItem('isFirstLaunch');
+        const vpnAlertShownBefore = await AsyncStorage.getItem('vpnAlertShown');
+        
+        // Показываем alert только при первом запуске и если он еще не был показан
+        if (isFirstLaunch !== 'false' && vpnAlertShownBefore !== 'true' && !vpnAlertShown) {
+          // Небольшая задержка для того, чтобы экран успел загрузиться
+          setTimeout(() => {
+            showVpnAlert();
+          }, 1000);
+        }
+      } catch (error) {
+        console.error('Ошибка проверки первого запуска:', error);
+      }
+    };
+
+    checkFirstLaunchAndShowVpnAlert();
+  }, [vpnAlertShown]);
+
+  const showVpnAlert = () => {
+    setVpnAlertShown(true);
+    
+    Alert.alert(
+      "⚠️ Важная информация",
+      "Внимание! При возникновении трудностей с загрузкой или обновлением погодных данных воспользуйтесь VPN.",
+      [
+        {
+          text: "Понятно",
+          style: "default",
+          onPress: async () => {
+            try {
+              // Сохраняем факт показа предупреждения
+              await AsyncStorage.setItem('vpnAlertShown', 'true');
+            } catch (error) {
+              console.error('Ошибка сохранения состояния VPN alert:', error);
+            }
+          }
+        }
+      ],
+      { 
+        cancelable: false // Не позволяем закрыть alert без нажатия кнопки
+      }
+    );
+  };
 
   const handleGeolocation = async () => {
     setStep('geo');
@@ -251,6 +300,24 @@ export default function WelcomeScreen({ navigation }) {
                   <Ionicons name="chevron-forward" size={20} color={secondaryTextColor} />
                 </TouchableOpacity>
               </View>
+
+              {/* VPN информационный баннер (опционально, если хотите добавить визуальный элемент) */}
+              {/* <View style={[styles.infoBanner, { 
+                backgroundColor: isDark ? 'rgba(255, 193, 7, 0.15)' : 'rgba(255, 193, 7, 0.1)',
+                borderColor: isDark ? 'rgba(255, 193, 7, 0.3)' : 'rgba(255, 193, 7, 0.25)'
+              }]}>
+                <Ionicons 
+                  name="information-circle-outline" 
+                  size={16} 
+                  color={isDark ? '#FFD700' : '#FF8F00'} 
+                  style={styles.infoIcon}
+                />
+                <Text style={[styles.infoBannerText, { 
+                  color: isDark ? '#FFE082' : '#F57C00' 
+                }]}>
+                  При проблемах с загрузкой данных рекомендуется использовать VPN
+                </Text>
+              </View> */}
             </>
           )}
 
@@ -351,9 +418,9 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     paddingHorizontal: 15,
-    paddingTop: 40,
+    paddingTop: 20,
     paddingBottom: 50,
-    gap: 40, // gap между основными секциями
+    gap: 20, // gap между основными секциями
   },
 
   // Загрузка
@@ -426,6 +493,28 @@ const styles = StyleSheet.create({
   optionDescription: {
     fontSize: 14,
     lineHeight: 18,
+  },
+
+  // VPN информационный баннер
+  infoBanner: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: -20, // Уменьшаем отступ сверху
+  },
+  infoIcon: {
+    marginRight: 8,
+  },
+  infoBannerText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '500',
+    flex: 1,
+    flexWrap: 'wrap',
+    flexShrink: 1,
   },
 
   // Ручной выбор города

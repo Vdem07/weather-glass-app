@@ -73,6 +73,30 @@ export default function renderWeatherIcon(iconType, size, color) {
             resizeMode="contain"
           />
         );
+      case 'uv':
+        return (
+          <Image 
+            source={require('../assets/icons/sun.png')} 
+            style={iconStyle}
+            resizeMode="contain"
+          />
+        );
+      case 'dew_point':
+        return (
+          <Image 
+            source={require('../assets/icons/dew.png')} 
+            style={iconStyle}
+            resizeMode="contain"
+          />
+        );
+        case 'temperature':
+          return (
+            <Image 
+              source={require('../assets/icons/thermometer.png')} 
+              style={iconStyle}
+              resizeMode="contain"
+            />
+          );
       default:
         return <Feather name="help-circle" size={size} color={color} />;
     }
