@@ -1165,7 +1165,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 15,
     paddingTop: 10,
-    paddingBottom: 70,
+    paddingBottom: 80,
     gap: 25,
   },
 
@@ -1347,7 +1347,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginTop: 5,
     fontStyle: 'italic',
-  },
   },
 
 // Секция политики конфиденциальности
