@@ -10,6 +10,7 @@ import {
   Alert,
   ScrollView,
   Image,
+  Image,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
@@ -34,6 +35,7 @@ import WebView from 'react-native-webview';
 import countries from 'i18n-iso-countries';
 import ruLocale from 'i18n-iso-countries/langs/ru.json';
 
+import WeatherIcon from '../components/WeatherIcon';
 import WeatherIcon from '../components/WeatherIcon';
 
 countries.registerLocale(ruLocale);
@@ -522,12 +524,15 @@ const formatTime = (totalSeconds) => {
   const loadSettings = async () => {
     try {
       const [geoSetting, unitSetting, windSetting, pressureSetting, visibilitySetting, autoRefreshSetting, cardsLayoutSetting, iconTypeSetting] = await Promise.all([
+      const [geoSetting, unitSetting, windSetting, pressureSetting, visibilitySetting, autoRefreshSetting, cardsLayoutSetting, iconTypeSetting] = await Promise.all([
         AsyncStorage.getItem('useGeo'),
         AsyncStorage.getItem('unit'),
         AsyncStorage.getItem('windUnit'),
         AsyncStorage.getItem('pressureUnit'),
         AsyncStorage.getItem('visibilityUnit'),
         AsyncStorage.getItem('autoRefreshInterval'),
+        AsyncStorage.getItem('cardsLayout'),
+        AsyncStorage.getItem('useStaticIcons')
         AsyncStorage.getItem('cardsLayout'),
         AsyncStorage.getItem('useStaticIcons')
       ]);
@@ -538,6 +543,8 @@ const formatTime = (totalSeconds) => {
       if (pressureSetting) setPressureUnit(pressureSetting);
       if (visibilitySetting) setVisibilityUnit(visibilitySetting);
       if (autoRefreshSetting) setAutoRefreshInterval(autoRefreshSetting);
+      if (cardsLayoutSetting) setCardsLayout(cardsLayoutSetting);
+      if (iconTypeSetting) setUseStaticIcons(iconTypeSetting === 'true');
       if (cardsLayoutSetting) setCardsLayout(cardsLayoutSetting);
       if (iconTypeSetting) setUseStaticIcons(iconTypeSetting === 'true');
     } catch (error) {
@@ -1365,7 +1372,13 @@ const weatherCards = [
               <WeatherIcon
                 weatherMain={weather.weather[0].main}
                 weatherDescription={weather.weather[0].description}
+              <WeatherIcon
+                weatherMain={weather.weather[0].main}
+                weatherDescription={weather.weather[0].description}
                 style={styles.weatherAnimation}
+                width={160}
+                height={160}
+                useStaticIcons={useStaticIcons}
                 width={160}
                 height={160}
                 useStaticIcons={useStaticIcons}
@@ -1616,6 +1629,14 @@ const weatherCards = [
                         height={90}
                         useStaticIcons={useStaticIcons}
                       />
+                      <WeatherIcon
+                        weatherMain={item.weather[0].main}
+                        weatherDescription={item.weather[0].description}
+                        style={styles.forecastAnimation}
+                        width={90}
+                        height={90}
+                        useStaticIcons={useStaticIcons}
+                      />
                     <Text style={[styles.forecastDescription, { color: secondaryTextColor }]}>
                       {item.weather[0].description}
                     </Text>
@@ -1657,7 +1678,13 @@ const weatherCards = [
                     <WeatherIcon
                       weatherMain={item.main}
                       weatherDescription={item.description}
+                    <WeatherIcon
+                      weatherMain={item.main}
+                      weatherDescription={item.description}
                       style={styles.dailyForecastAnimation}
+                      width={50}
+                      height={50}
+                      useStaticIcons={useStaticIcons}
                       width={50}
                       height={50}
                       useStaticIcons={useStaticIcons}
@@ -2025,6 +2052,7 @@ progressBarFill: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
+    gap: 12,
     gap: 12,
     paddingHorizontal: 15,
   },
