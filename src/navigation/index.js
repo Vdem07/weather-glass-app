@@ -97,6 +97,7 @@ export default function Navigation() {
             options={{
               presentation: 'transparentModal',
               animation: 'fade',
+              animation: 'fade',
             }}
           />
           <Stack.Screen 

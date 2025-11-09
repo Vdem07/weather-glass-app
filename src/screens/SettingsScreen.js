@@ -1348,6 +1348,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
     fontStyle: 'italic',
   },
+  },
 
 // Секция политики конфиденциальности
 privacySection: {
