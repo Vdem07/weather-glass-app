@@ -352,7 +352,7 @@ export function LargeWeatherWidget(props) {
               paddingHorizontal: 4,
             }}
           >
-            {forecast.slice(1, 4).map((day, index) => {
+            {forecast.slice(0, 3).map((day, index) => {
               const date = new Date(day.date);
               const dayName = index === 0 ? 'Завтра' : 
                             ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'][date.getDay()];
