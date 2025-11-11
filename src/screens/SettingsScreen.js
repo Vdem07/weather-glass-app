@@ -743,48 +743,80 @@ const handleCitySelect = async (cityData) => {
           </View>
 
           {/* Виджеты погоды */}
-          <View style={styles.settingGroup}>
-            <Text style={[styles.groupLabel, { color: isDark ? '#fff' : '#000' }]}>
-              Виджеты
-            </Text>
-            
-            <TouchableOpacity
-              style={[
-                styles.widgetButton,
-                { 
-                  backgroundColor: isDark ? 'rgba(33, 150, 243, 0.1)' : 'rgba(33, 150, 243, 0.1)',
-                  borderColor: isDark ? 'rgba(33, 150, 243, 0.3)' : '#2196F3'
-                }
-              ]}
-              onPress={() => navigation.navigate('WidgetPreview')}
-            >
-              <View style={styles.widgetButtonContent}>
-                <Ionicons 
-                  name="grid-outline" 
-                  size={20} 
-                  color="#2196F3"
-                />
-                <Text style={[
-                  styles.widgetButtonText,
-                  { color: '#2196F3' }
-                ]}>
-                  Предварительный просмотр виджетов
-                </Text>
-                <Ionicons 
-                  name="chevron-forward" 
-                  size={16} 
-                  color={isDark ? '#2196F3' : '#2196F3'}
-                />
-              </View>
-            </TouchableOpacity>
-            
-            <Text style={[
-              styles.widgetDescription, 
-              { color: isDark ? '#aaa' : '#666' }
-            ]}>
-              Просмотрите доступные виджеты погоды для главного экрана
-            </Text>
-          </View>
+<View style={styles.settingGroup}>
+  <Text style={[styles.groupLabel, { color: isDark ? '#fff' : '#000' }]}>
+    Виджеты
+  </Text>
+  
+  {/* Адаптивный виджет */}
+  <TouchableOpacity
+    style={[
+      styles.widgetButton,
+      { 
+        backgroundColor: isDark ? 'rgba(33, 150, 243, 0.1)' : 'rgba(33, 150, 243, 0.1)',
+        borderColor: isDark ? 'rgba(33, 150, 243, 0.3)' : '#2196F3'
+      }
+    ]}
+    onPress={() => navigation.navigate('AdaptiveWidgetPreview')}
+  >
+    <View style={styles.widgetButtonContent}>
+      <Ionicons 
+        name="resize" 
+        size={20} 
+        color="#2196F3"
+      />
+      <Text style={[
+        styles.widgetButtonText,
+        { color: '#2196F3' }
+      ]}>
+        Адаптивный виджет (рекомендуется)
+      </Text>
+      <Ionicons 
+        name="chevron-forward" 
+        size={16} 
+        color={isDark ? '#2196F3' : '#2196F3'}
+      />
+    </View>
+  </TouchableOpacity>
+  
+  {/* Классические виджеты */}
+  <TouchableOpacity
+    style={[
+      styles.widgetButton,
+      { 
+        backgroundColor: isDark ? 'rgba(156, 39, 176, 0.1)' : 'rgba(156, 39, 176, 0.1)',
+        borderColor: isDark ? 'rgba(156, 39, 176, 0.3)' : '#9C27B0'
+      }
+    ]}
+    onPress={() => navigation.navigate('WidgetPreview')}
+  >
+    <View style={styles.widgetButtonContent}>
+      <Ionicons 
+        name="grid-outline" 
+        size={20} 
+        color="#9C27B0"
+      />
+      <Text style={[
+        styles.widgetButtonText,
+        { color: '#9C27B0' }
+      ]}>
+        Классические виджеты (фиксированные размеры)
+      </Text>
+      <Ionicons 
+        name="chevron-forward" 
+        size={16} 
+        color={isDark ? '#9C27B0' : '#9C27B0'}
+      />
+    </View>
+  </TouchableOpacity>
+  
+  <Text style={[
+    styles.widgetDescription, 
+    { color: isDark ? '#aaa' : '#666' }
+  ]}>
+    Адаптивный виджет автоматически изменяется в зависимости от размера и подходит для любого экрана. Классические виджеты имеют фиксированные размеры.
+  </Text>
+</View>
 
           {/* Температура */}
           <View style={styles.settingGroup}>

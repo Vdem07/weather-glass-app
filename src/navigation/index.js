@@ -12,6 +12,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import LifeActivityScreen from '../screens/LifeActivityScreen';
 import WeatherMapScreen from '../screens/WeatherMapScreen';
 import WidgetPreviewScreen from '../screens/WidgetPreviewScreen'; // Добавляем новый экран
+import AdaptiveWidgetPreviewScreen from '../screens/AdaptiveWidgetPreviewScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -133,6 +134,11 @@ export default function Navigation() {
               presentation: 'transparentModal',
               animation: 'fade',
             }}
+          />
+          <Stack.Screen 
+            name="AdaptiveWidgetPreview" 
+            component={AdaptiveWidgetPreviewScreen}
+            options={{ headerShown: false }}
           />
         </Stack.Navigator>
       </NavigationContainer>
