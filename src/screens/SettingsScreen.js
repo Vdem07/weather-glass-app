@@ -364,7 +364,7 @@ export default function SettingsScreen({ navigation }) {
             />
           </View>
 
-          <Text style={[styles.version, { color: secondaryTextColor }]}>Версия 1.1.0</Text>
+          <Text style={[styles.version, { color: secondaryTextColor }]}>Версия 1.26.3</Text>
         </ScrollView>
       </BlurView>
     </ImageBackground>
