@@ -1,8 +1,9 @@
 /**
  * LifeActivityScreen
  *
- * Экран с погодными условиями для конкретной активности.
+ * Экран с детальными погодными условиями для конкретной активности.
  * Поддерживает: аллергия, вождение, рыбалка, отдых у воды, садоводство, бег.
+ * Работает с нормализованными данными (WeatherData).
  */
 
 import React from 'react';
@@ -13,11 +14,11 @@ import { useThemeContext } from '../theme/ThemeContext';
 import { useWeatherSettings } from '../hooks/useWeatherSettings';
 import { getActivityData, scoreDay, getConditionLabel } from '../utils/activityData';
 
-import ActivityHeader from '../components/life/ActivityHeader';
-import ActivityConditions from '../components/life/ActivityConditions';
+import ActivityHeader        from '../components/life/ActivityHeader';
+import ActivityConditions    from '../components/life/ActivityConditions';
 import ActivityRecommendations from '../components/life/ActivityRecommendations';
-import ActivityForecast from '../components/life/ActivityForecast';
-import ActivityHourly from '../components/life/ActivityHourly';
+import ActivityForecast      from '../components/life/ActivityForecast';
+import ActivityHourly        from '../components/life/ActivityHourly';
 
 export default function LifeActivityScreen({ navigation, route }) {
   const { activityType, title, color, weather, forecast, hourlyForecast } = route.params;
@@ -56,28 +57,10 @@ export default function LifeActivityScreen({ navigation, route }) {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          <ActivityConditions
-            conditions={activityData.conditions}
-            isDark={isDark}
-          />
-          <ActivityRecommendations
-            recommendations={activityData.recommendations}
-            color={color}
-            isDark={isDark}
-          />
-          <ActivityForecast
-            forecast={forecastData}
-            isDark={isDark}
-            tempUnit={tempUnit}
-            useStaticIcons={useStaticIcons}
-          />
-          <ActivityHourly
-            hourlyForecast={hourlyForecast}
-            activityType={activityType}
-            isDark={isDark}
-            tempUnit={tempUnit}
-            useStaticIcons={useStaticIcons}
-          />
+          <ActivityConditions conditions={activityData.conditions} isDark={isDark} />
+          <ActivityRecommendations recommendations={activityData.recommendations} color={color} isDark={isDark} />
+          <ActivityForecast forecast={forecastData} isDark={isDark} tempUnit={tempUnit} useStaticIcons={useStaticIcons} />
+          <ActivityHourly hourlyForecast={hourlyForecast} activityType={activityType} isDark={isDark} tempUnit={tempUnit} useStaticIcons={useStaticIcons} />
         </ScrollView>
       </BlurView>
     </ImageBackground>

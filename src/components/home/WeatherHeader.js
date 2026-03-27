@@ -4,12 +4,14 @@
  * Шапка главного экрана: кнопка настроек, поле поиска города, кнопка поиска,
  * выпадающий список результатов и название текущего города.
  *
+ * Работает с нормализованными данными (WeatherData).
+ *
  * Props:
- * - weather: object — текущие данные погоды
+ * - weather: WeatherData
  * - isDark: boolean
  * - navigation: object
- * - onCitySelect: (lat, lon) => void — колбэк при выборе города
- * - useGeo: boolean — показывать ли кнопку геолокации в списке
+ * - onCitySelect: (lat, lon) => void
+ * - useGeo: boolean
  */
 
 import React, { useState } from 'react';
@@ -138,7 +140,7 @@ export default function WeatherHeader({ weather, isDark, navigation, onCitySelec
         <View style={styles.cityBlock}>
           <Text style={[styles.city, { color: textColor }]}>{weather.name}</Text>
           <Text style={[styles.country, { color: secondaryTextColor }]}>
-            {countries.getName(weather.sys.country, 'ru') || weather.sys.country}
+            {countries.getName(weather.country, 'ru') || weather.country}
           </Text>
         </View>
       )}
@@ -155,55 +157,13 @@ const styles = StyleSheet.create({
     gap: 10,
     zIndex: 100,
   },
-  btn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  input: {
-    flex: 1,
-    height: 44,
-    borderRadius: 22,
-    paddingHorizontal: 20,
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  suggestionList: {
-    position: 'absolute',
-    top: 95,
-    left: 60,
-    right: 60,
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    zIndex: 20,
-  },
-  suggestionItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-  },
-  suggestionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
+  btn: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  input: { flex: 1, height: 44, borderRadius: 22, paddingHorizontal: 20, fontSize: 16, textAlign: 'center' },
+  suggestionList: { position: 'absolute', top: 95, left: 60, right: 60, borderRadius: 20, paddingVertical: 8, paddingHorizontal: 10, zIndex: 20 },
+  suggestionItem: { paddingVertical: 12, paddingHorizontal: 15, borderBottomWidth: 1 },
+  suggestionRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   suggestionText: { fontSize: 14 },
-  cityBlock: {
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginTop: 10,
-  },
-  city: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  country: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 2,
-  },
+  cityBlock: { alignItems: 'center', paddingHorizontal: 20, marginTop: 10 },
+  city: { fontSize: 28, fontWeight: 'bold', textAlign: 'center' },
+  country: { fontSize: 16, textAlign: 'center', marginTop: 2 },
 });

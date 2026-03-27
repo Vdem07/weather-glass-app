@@ -2,9 +2,10 @@
  * HourlyForecast
  *
  * Горизонтальный список почасового прогноза погоды.
+ * Работает с нормализованными данными (HourlyForecast[]).
  *
  * Props:
- * - hourlyForecast: array — список почасовых данных
+ * - hourlyForecast: HourlyForecast[]
  * - isDark: boolean
  * - tempUnit: string
  * - useStaticIcons: boolean
@@ -35,17 +36,17 @@ export default function HourlyForecast({ hourlyForecast, isDark, tempUnit, useSt
               {new Date(item.dt_txt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
             </Text>
             <WeatherIcon
-              weatherMain={item.weather[0].main}
-              weatherDescription={item.weather[0].description}
+              weatherMain={item.main}
+              weatherDescription={item.description}
               width={90}
               height={90}
               useStaticIcons={useStaticIcons}
             />
             <Text style={[styles.desc, { color: secondaryTextColor }]}>
-              {item.weather[0].description}
+              {item.description}
             </Text>
             <Text style={[styles.temp, { color: textColor }]}>
-              {Math.round(convertTemperature(item.main.temp, tempUnit))}{getTemperatureSymbol(tempUnit)}
+              {Math.round(convertTemperature(item.temp, tempUnit))}{getTemperatureSymbol(tempUnit)}
             </Text>
           </View>
         )}
@@ -56,43 +57,10 @@ export default function HourlyForecast({ hourlyForecast, isDark, tempUnit, useSt
 
 const styles = StyleSheet.create({
   container: { gap: 15 },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    paddingHorizontal: 20,
-  },
-  list: {
-    paddingHorizontal: 15,
-    gap: 10,
-    alignItems: 'flex-start',
-  },
-  card: {
-    alignItems: 'center',
-    borderRadius: 15,
-    padding: 8,
-    width: 110,
-    minHeight: 160,
-  },
-  time: {
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 5,
-    textTransform: 'capitalize',
-  },
-  desc: {
-    fontSize: 12,
-    textAlign: 'center',
-    textTransform: 'capitalize',
-    marginVertical: 5,
-    lineHeight: 16,
-    minHeight: 32,
-  },
-  temp: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginTop: 5,
-  },
+  title: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', paddingHorizontal: 20 },
+  list: { paddingHorizontal: 15, gap: 10, alignItems: 'flex-start' },
+  card: { alignItems: 'center', borderRadius: 15, padding: 8, width: 110, minHeight: 160 },
+  time: { fontSize: 16, fontWeight: '600', textAlign: 'center', marginBottom: 5, textTransform: 'capitalize' },
+  desc: { fontSize: 12, textAlign: 'center', textTransform: 'capitalize', marginVertical: 5, lineHeight: 16, minHeight: 32 },
+  temp: { fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginTop: 5 },
 });

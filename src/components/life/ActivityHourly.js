@@ -2,10 +2,10 @@
  * ActivityHourly
  *
  * Почасовой прогноз условий активности на сегодня.
- * Цветной индикатор показывает пригодность часа для активности.
+ * Работает с нормализованными данными (HourlyForecast[]).
  *
  * Props:
- * - hourlyForecast: array
+ * - hourlyForecast: HourlyForecast[]
  * - activityType: string
  * - isDark: boolean
  * - tempUnit: string
@@ -34,7 +34,7 @@ export default function ActivityHourly({ hourlyForecast, activityType, isDark, t
         showsHorizontalScrollIndicator={false}
         style={styles.flatList}
         renderItem={({ item, index }) => {
-          const score = scoreHour(activityType, item.main.temp, item.weather[0].main);
+          const score = scoreHour(activityType, item.temp, item.main);
           const indicatorColor = score >= 2 ? '#4CAF50' : score >= 1 ? '#FFC107' : '#FF9800';
           return (
             <View style={[
@@ -48,14 +48,14 @@ export default function ActivityHourly({ hourlyForecast, activityType, isDark, t
                 {new Date(item.dt_txt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
               </Text>
               <WeatherIcon
-                weatherMain={item.weather[0].main}
-                weatherDescription={item.weather[0].description}
+                weatherMain={item.main}
+                weatherDescription={item.description}
                 width={30}
                 height={30}
                 useStaticIcons={useStaticIcons}
               />
               <Text style={[styles.temp, { color: textColor }]}>
-                {Math.round(convertTemperature(item.main.temp, tempUnit))}°
+                {Math.round(convertTemperature(item.temp, tempUnit))}°
               </Text>
               <View style={[styles.indicator, { backgroundColor: indicatorColor }]} />
             </View>
@@ -71,13 +71,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: 'bold' },
   flatList: { marginHorizontal: -15 },
   list: { paddingLeft: 15 },
-  card: {
-    alignItems: 'center',
-    borderRadius: 12,
-    padding: 12,
-    width: 70,
-    gap: 8,
-  },
+  card: { alignItems: 'center', borderRadius: 12, padding: 12, width: 70, gap: 8 },
   time: { fontSize: 12, fontWeight: '600' },
   temp: { fontSize: 14, fontWeight: '600' },
   indicator: { width: 20, height: 3, borderRadius: 1.5 },

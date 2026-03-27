@@ -2,7 +2,7 @@
  * activityData
  *
  * Логика расчёта условий и рекомендаций для каждого типа активности.
- * Используется в LifeActivityScreen и компонентах life/.
+ * Работает с нормализованными данными (WeatherData).
  */
 
 import {
@@ -12,7 +12,6 @@ import {
   convertVisibility,
 } from './weatherUnits';
 
-// Пороговые значения по единицам измерения
 export const WIND_THRESHOLDS = {
   'm/s':  { low: 3,    mid: 5,    high: 6,    danger: 10,   caution: 15   },
   'km/h': { low: 10.8, mid: 18,   high: 21.6, danger: 36,   caution: 54   },
@@ -32,7 +31,6 @@ export const VISIBILITY_THRESHOLDS = {
   mi: { poor: 0.62, moderate: 3.11 },
 };
 
-// Маппинг иконок активностей
 export const ACTIVITY_ICONS = {
   allergy:          require('../assets/icons/allergy.png'),
   driving:          require('../assets/icons/driving.png'),
@@ -42,7 +40,6 @@ export const ACTIVITY_ICONS = {
   running:          require('../assets/icons/running.png'),
 };
 
-// Единая функция определения уровня условий по score
 export const getConditionLabel = (score, thresholds) => {
   const levels = [
     { min: thresholds[0], label: 'Отличные',          color: '#4CAF50' },
@@ -55,18 +52,16 @@ export const getConditionLabel = (score, thresholds) => {
   return { label: 'Неподходящие', color: '#f44336' };
 };
 
-// Приблизительный расчёт UV если данные недоступны
 export const approximateUV = (weather) => {
   const hour = new Date().getHours();
-  const cloudiness = weather.clouds?.all || 0;
+  const cloudiness = weather.clouds || 0;
   const base = hour >= 10 && hour <= 16 ? 7 : hour >= 8 && hour <= 18 ? 4 : 1;
   return Math.max(0, Math.min(11, Math.round(base * (100 - cloudiness) / 100)));
 };
 
 export const getUVIndex = (weather) =>
-  weather?.uv_index ?? approximateUV(weather);
+  weather?.uvIndex ?? approximateUV(weather);
 
-// Оценка условий для дневного прогноза
 export const scoreDay = (activityType, dayTemp, main) => {
   switch (activityType) {
     case 'allergy':          return (dayTemp > 15 ? 1 : 0) + (main !== 'Rain' ? 1 : 0);
@@ -79,7 +74,6 @@ export const scoreDay = (activityType, dayTemp, main) => {
   }
 };
 
-// Оценка условий для почасового прогноза
 export const scoreHour = (activityType, hourTemp, main) => {
   switch (activityType) {
     case 'allergy':          return (hourTemp > 15 ? 1 : 0) + (!main.includes('Rain') ? 1 : 0);
@@ -92,20 +86,19 @@ export const scoreHour = (activityType, hourTemp, main) => {
   }
 };
 
-// Данные условий и рекомендаций для каждой активности
 export const getActivityData = (activityType, weather, units) => {
   const { tempUnit, windUnit, pressureUnit, visibilityUnit } = units;
-  const windSpeed = convertWindSpeed(weather.wind.speed, windUnit);
+  const windSpeed = convertWindSpeed(weather.windSpeed, windUnit);
   const wt = WIND_THRESHOLDS[windUnit] || WIND_THRESHOLDS['m/s'];
-  const tempC = weather.main.temp;
-  const humidity = weather.main.humidity;
+  const tempC = weather.temp;
+  const humidity = weather.humidity;
 
   switch (activityType) {
     case 'allergy': {
       let score = 0;
-      if (weather.wind.speed > 3) score += 2;
+      if (weather.windSpeed > 3) score += 2;
       if (humidity < 50) score += 1;
-      if (weather.weather[0].main === 'Clear') score += 2;
+      if (weather.main === 'Clear') score += 2;
       if (tempC > 15) score += 1;
       const pollenLabel = score >= 5 ? 'Очень высокий' : score >= 4 ? 'Высокий' : score >= 2 ? 'Средний' : 'Низкий';
       const pollenColor = score >= 5 ? '#f44336' : score >= 4 ? '#FF9800' : score >= 2 ? '#FFC107' : '#4CAF50';
@@ -129,9 +122,9 @@ export const getActivityData = (activityType, weather, units) => {
 
     case 'driving': {
       const visibility = weather.visibility || 10000;
-      const isRain = weather.weather[0].main.includes('Rain');
-      const isSnow = weather.weather[0].main.includes('Snow');
-      const isFog  = weather.weather[0].main.includes('Mist') || weather.weather[0].main.includes('Fog');
+      const isRain = weather.main.includes('Rain');
+      const isSnow = weather.main.includes('Snow');
+      const isFog  = weather.main.includes('Mist') || weather.main.includes('Fog');
       let dScore = 5;
       if (visibility < 1000) dScore -= 3; else if (visibility < 5000) dScore -= 2; else if (visibility < 10000) dScore -= 1;
       if (windSpeed > wt.caution) dScore -= 2; else if (windSpeed > wt.danger) dScore -= 1;
@@ -157,9 +150,9 @@ export const getActivityData = (activityType, weather, units) => {
     }
 
     case 'fishing': {
-      const pressure = convertPressure(weather.main.pressure, pressureUnit);
+      const pressure = convertPressure(weather.pressure, pressureUnit);
       const pt = PRESSURE_THRESHOLDS[pressureUnit] || PRESSURE_THRESHOLDS.mmHg;
-      const cloudiness = weather.clouds?.all || 0;
+      const cloudiness = weather.clouds || 0;
       const waterTempC = tempC - 2;
       let fScore = 0;
       if (pressure >= pt.optMin && pressure <= pt.optMax) fScore += 2; else if (pressure >= pt.goodMin && pressure <= pt.goodMax) fScore += 1;
@@ -189,8 +182,8 @@ export const getActivityData = (activityType, weather, units) => {
       let rScore = 0;
       if (tempC >= 25) rScore += 2; else if (tempC >= 20) rScore += 1;
       if (windSpeed <= wt.low) rScore += 2; else if (windSpeed <= wt.high) rScore += 1;
-      if (weather.weather[0].main === 'Clear') rScore += 2;
-      else if (weather.weather[0].main === 'Clouds' && weather.clouds?.all < 50) rScore += 1;
+      if (weather.main === 'Clear') rScore += 2;
+      else if (weather.main === 'Clouds' && weather.clouds < 50) rScore += 1;
       const { label: rLabel, color: rColor } = getConditionLabel(rScore, [5, 3, 1]);
       return {
         conditions: [
@@ -209,7 +202,7 @@ export const getActivityData = (activityType, weather, units) => {
     }
 
     case 'gardening': {
-      const isRain = weather.weather[0].main.includes('Rain');
+      const isRain = weather.main.includes('Rain');
       let gScore = 0;
       if (tempC >= 15 && tempC <= 28) gScore += 2; else if (tempC >= 10 && tempC <= 32) gScore += 1;
       if (humidity >= 40 && humidity <= 70) gScore += 2; else if (humidity >= 30 && humidity <= 80) gScore += 1;
@@ -234,8 +227,8 @@ export const getActivityData = (activityType, weather, units) => {
 
     case 'running': {
       const uv = getUVIndex(weather);
-      const isRain = weather.weather[0].main.includes('Rain');
-      const isSnow = weather.weather[0].main.includes('Snow');
+      const isRain = weather.main.includes('Rain');
+      const isSnow = weather.main.includes('Snow');
       let rnScore = 0;
       if (tempC >= 10 && tempC <= 20) rnScore += 2; else if (tempC >= 5 && tempC <= 25) rnScore += 1;
       if (humidity <= 60) rnScore += 2; else if (humidity <= 75) rnScore += 1;

@@ -7,10 +7,11 @@
  * - horizontal_grid — сетка с горизонтальной прокруткой 5×2
  * - compact — компактный блок со всеми параметрами
  *
+ * Работает с нормализованными данными (WeatherData).
+ *
  * Props:
- * - weather: object
- * - dewPoint: number | null
- * - hourlyForecast: array
+ * - weather: WeatherData
+ * - hourlyForecast: HourlyForecast[]
  * - isDark: boolean
  * - layout: 'horizontal' | 'grid' | 'horizontal_grid' | 'compact'
  * - units: { tempUnit, windUnit, pressureUnit, visibilityUnit }
@@ -32,7 +33,7 @@ import {
   getPrecipitationProbability,
 } from '../../utils/weatherInterpretation';
 
-const buildCards = (weather, dewPoint, hourlyForecast, units) => {
+const buildCards = (weather, hourlyForecast, units) => {
   const { tempUnit, windUnit, pressureUnit, visibilityUnit } = units;
   const precipitation = getPrecipitationProbability(weather, hourlyForecast);
 
@@ -40,55 +41,55 @@ const buildCards = (weather, dewPoint, hourlyForecast, units) => {
     {
       id: 'wind',
       title: 'Ветер',
-      value: `${convertWindSpeed(weather.wind.speed, windUnit).toFixed(1)} ${getWindSpeedLabel(windUnit)}`,
-      subtitle: getWindDirection(weather.wind.deg),
-      interpretation: getWeatherInterpretation('wind', weather.wind.speed, weather, units),
-      color: getIndicatorColor('wind', weather.wind.speed, weather, units),
+      value: `${convertWindSpeed(weather.windSpeed, windUnit).toFixed(1)} ${getWindSpeedLabel(windUnit)}`,
+      subtitle: getWindDirection(weather.windDeg),
+      interpretation: getWeatherInterpretation('wind', weather.windSpeed, weather, units),
+      color: getIndicatorColor('wind', weather.windSpeed, weather, units),
     },
     {
       id: 'humidity',
       title: 'Влажность',
-      value: `${weather.main.humidity}%`,
+      value: `${weather.humidity}%`,
       subtitle: 'Относительная влажность',
-      interpretation: getWeatherInterpretation('humidity', weather.main.humidity, weather, units),
-      color: getIndicatorColor('humidity', weather.main.humidity, weather, units),
+      interpretation: getWeatherInterpretation('humidity', weather.humidity, weather, units),
+      color: getIndicatorColor('humidity', weather.humidity, weather, units),
     },
     {
       id: 'dew_point',
       title: 'Точка росы',
-      value: dewPoint ? `${Math.round(convertTemperature(dewPoint, tempUnit))}${getTemperatureSymbol(tempUnit)}` : 'Н/Д',
+      value: weather.dewPoint ? `${Math.round(convertTemperature(weather.dewPoint, tempUnit))}${getTemperatureSymbol(tempUnit)}` : 'Н/Д',
       subtitle: 'Температура конденсации',
-      interpretation: getWeatherInterpretation('dew_point', dewPoint, weather, units),
-      color: getIndicatorColor('dew_point', dewPoint, weather, units),
+      interpretation: getWeatherInterpretation('dew_point', weather.dewPoint, weather, units),
+      color: getIndicatorColor('dew_point', weather.dewPoint, weather, units),
     },
     {
       id: 'pressure',
       title: 'Давление',
-      value: `${convertPressure(weather.main.pressure, pressureUnit)} ${getPressureLabel(pressureUnit)}`,
+      value: `${convertPressure(weather.pressure, pressureUnit)} ${getPressureLabel(pressureUnit)}`,
       subtitle: 'Атмосферное давление',
-      interpretation: getWeatherInterpretation('pressure', weather.main.pressure, weather, units),
-      color: getIndicatorColor('pressure', weather.main.pressure, weather, units),
+      interpretation: getWeatherInterpretation('pressure', weather.pressure, weather, units),
+      color: getIndicatorColor('pressure', weather.pressure, weather, units),
     },
     {
       id: 'clouds',
       title: 'Облачность',
-      value: `${weather.clouds?.all || 0}%`,
+      value: `${weather.clouds || 0}%`,
       subtitle: 'Покрытие неба облаками',
-      interpretation: getWeatherInterpretation('clouds', weather.clouds?.all || 0, weather, units),
-      color: getIndicatorColor('clouds', weather.clouds?.all || 0, weather, units),
+      interpretation: getWeatherInterpretation('clouds', weather.clouds || 0, weather, units),
+      color: getIndicatorColor('clouds', weather.clouds || 0, weather, units),
     },
     {
       id: 'uv',
       title: 'UV индекс',
-      value: weather.uv_index !== undefined ? `${weather.uv_index}/11` : 'Н/Д',
+      value: weather.uvIndex !== undefined ? `${weather.uvIndex}/11` : 'Н/Д',
       subtitle: 'Ультрафиолетовое излучение',
-      interpretation: getWeatherInterpretation('uv', weather.uv_index || 0, weather, units),
-      color: getIndicatorColor('uv', weather.uv_index || 0, weather, units),
+      interpretation: getWeatherInterpretation('uv', weather.uvIndex || 0, weather, units),
+      color: getIndicatorColor('uv', weather.uvIndex || 0, weather, units),
     },
     {
       id: 'sunrise',
       title: 'Рассвет',
-      value: new Date(weather.sys.sunrise * 1000).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      value: new Date(weather.sunrise * 1000).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
       subtitle: 'Восход солнца',
       interpretation: 'Начало светового дня',
       color: '#FF9800',
@@ -96,7 +97,7 @@ const buildCards = (weather, dewPoint, hourlyForecast, units) => {
     {
       id: 'sunset',
       title: 'Закат',
-      value: new Date(weather.sys.sunset * 1000).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      value: new Date(weather.sunset * 1000).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
       subtitle: 'Заход солнца',
       interpretation: 'Конец светового дня',
       color: '#FF5722',
@@ -144,12 +145,10 @@ const Card = ({ item, isDark, style }) => {
   );
 };
 
-export default function WeatherCards({ weather, dewPoint, hourlyForecast, isDark, layout = 'horizontal', units = {} }) {
+export default function WeatherCards({ weather, hourlyForecast, isDark, layout = 'horizontal', units = {} }) {
   const textColor = isDark ? '#fff' : '#333';
-  const cardBg = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
   const compactBg = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
-
-  const cards = buildCards(weather, dewPoint, hourlyForecast, units);
+  const cards = buildCards(weather, hourlyForecast, units);
 
   return (
     <View style={styles.container}>
@@ -209,33 +208,18 @@ export default function WeatherCards({ weather, dewPoint, hourlyForecast, isDark
 
 const styles = StyleSheet.create({
   container: { gap: 15 },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    paddingHorizontal: 20,
-  },
-
-  // Horizontal
+  title: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', paddingHorizontal: 20 },
   horizontalList: { paddingHorizontal: 15, gap: 10 },
   horizontalCard: { width: 160, minHeight: 150, borderRadius: 16, padding: 16, justifyContent: 'space-between', overflow: 'hidden' },
-
-  // Grid 2×5
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 12, paddingHorizontal: 15 },
   gridCard: { width: '48%', minHeight: 150, borderRadius: 16, padding: 16, justifyContent: 'space-between', overflow: 'hidden' },
-
-  // Horizontal grid 5×2
   horizontalGrid: { flexDirection: 'column', flexWrap: 'wrap', height: 320, paddingHorizontal: 15, gap: 10 },
   horizontalGridCard: { width: 160, height: 150, borderRadius: 16, padding: 16, justifyContent: 'center', overflow: 'hidden' },
-
-  // Compact
   compactContainer: { marginHorizontal: 15, paddingVertical: 20, paddingHorizontal: 15, borderRadius: 20, overflow: 'hidden' },
   compactGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', alignItems: 'flex-start', rowGap: 20, columnGap: 5 },
   compactItem: { width: '23%', minWidth: 65, alignItems: 'center', gap: 6 },
   compactTitle: { fontSize: 10, fontWeight: '600', textAlign: 'center', opacity: 0.8 },
   compactValue: { fontSize: 12, fontWeight: '500', textAlign: 'center' },
-
-  // Card internals
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flex: 1 },
   cardLeft: { flex: 1, justifyContent: 'flex-start', alignItems: 'flex-start' },
   cardIcon: { alignItems: 'center', justifyContent: 'center' },

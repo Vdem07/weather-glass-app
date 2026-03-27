@@ -106,7 +106,7 @@ export default function SettingsScreen({ navigation }) {
         const coords = JSON.parse(savedCity);
         try {
           const weather = await getCurrentWeather(coords.lat, coords.lon);
-          const name = `${weather.name}, ${countries.getName(weather.sys.country, 'ru') || weather.sys.country}`;
+          const name = `${weather.name}, ${countries.getName(weather.country, 'ru') || weather.country}`;
           await AsyncStorage.setItem('savedCityName', name);
           setCurrentCity(name);
         } catch {
@@ -127,7 +127,7 @@ export default function SettingsScreen({ navigation }) {
 
       try {
         const weather = await getCurrentWeather(location.coords.latitude, location.coords.longitude);
-        const name = `${weather.name}, ${countries.getName(weather.sys.country, 'ru') || weather.sys.country}`;
+        const name = `${weather.name}, ${countries.getName(weather.country, 'ru') || weather.country}`;
         await AsyncStorage.setItem('geoLocationName', name);
         setCurrentCity(`${name} (по геолокации)`);
       } catch {
@@ -155,7 +155,7 @@ export default function SettingsScreen({ navigation }) {
       await AsyncStorage.removeItem('savedCityName');
       try {
         const weather = await getCurrentWeather(location.coords.latitude, location.coords.longitude);
-        const name = `${weather.name}, ${countries.getName(weather.sys.country, 'ru') || weather.sys.country}`;
+        const name = `${weather.name}, ${countries.getName(weather.country, 'ru') || weather.country}`;
         await AsyncStorage.setItem('geoLocationName', name);
         await AsyncStorage.setItem('shouldRefreshWeather', 'true');
         setCurrentCity(`${name} (по геолокации)`);
@@ -364,7 +364,7 @@ export default function SettingsScreen({ navigation }) {
             />
           </View>
 
-          <Text style={[styles.version, { color: secondaryTextColor }]}>Версия 1.26.3</Text>
+          <Text style={[styles.version, { color: secondaryTextColor }]}>Версия 1.1.0</Text>
         </ScrollView>
       </BlurView>
     </ImageBackground>

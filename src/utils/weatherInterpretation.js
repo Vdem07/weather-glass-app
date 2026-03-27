@@ -3,23 +3,22 @@
  *
  * Утилиты для интерпретации погодных показателей:
  * текстовые описания и цвета индикаторов.
- * Используется в HomeScreen и компонентах карточек погоды.
+ * Работает с нормализованными данными (WeatherData).
  */
 
 import {
-  convertTemperature,
   convertWindSpeed,
   convertPressure,
+  convertTemperature,
   convertVisibility,
 } from './weatherUnits';
 
-// Текстовая интерпретация показателей
 export const getWeatherInterpretation = (type, value, weather, units = {}) => {
   const { tempUnit = 'metric', windUnit = 'm/s', pressureUnit = 'mmHg', visibilityUnit = 'km' } = units;
 
   switch (type) {
     case 'pressure': {
-      const p = convertPressure(weather.main.pressure, pressureUnit);
+      const p = convertPressure(weather.pressure, pressureUnit);
       const thresholds = { mmHg: [740, 770], hPa: [987, 1027], bar: [0.987, 1.027], psi: [14.3, 14.9] };
       const [low, high] = thresholds[pressureUnit] || thresholds.mmHg;
       if (p < low) return 'Низкое давление';
@@ -34,7 +33,7 @@ export const getWeatherInterpretation = (type, value, weather, units = {}) => {
       if (value > 60) return 'Влажность повышенная';
       return 'Влажность нормальная';
     case 'wind': {
-      const w = convertWindSpeed(weather.wind.speed, windUnit);
+      const w = convertWindSpeed(weather.windSpeed, windUnit);
       const thresholds = { 'm/s': [2, 5, 10, 15], 'km/h': [7.2, 18, 36, 54], 'mph': [4.5, 11.2, 22.4, 33.6] };
       const [l, m, f, s] = thresholds[windUnit] || thresholds['m/s'];
       if (w < l) return 'Штиль';
@@ -89,7 +88,7 @@ export const getWeatherInterpretation = (type, value, weather, units = {}) => {
     }
     case 'dew_point': {
       if (!value) return 'Данные недоступны';
-      const diff = weather.main.temp - value;
+      const diff = weather.temp - value;
       if (diff < 2) return 'Очень высокая влажность - возможен туман';
       if (diff < 5) return 'Высокая влажность - дискомфорт';
       if (diff < 10) return 'Умеренная влажность';
@@ -100,19 +99,18 @@ export const getWeatherInterpretation = (type, value, weather, units = {}) => {
   }
 };
 
-// Цвет индикатора показателя
 export const getIndicatorColor = (type, value, weather, units = {}) => {
   const { windUnit = 'm/s', pressureUnit = 'mmHg' } = units;
 
   switch (type) {
     case 'pressure': {
-      const p = convertPressure(weather.main.pressure, pressureUnit);
+      const p = convertPressure(weather.pressure, pressureUnit);
       return pressureUnit === 'mmHg' && (p < 740 || p > 770) ? '#ff8800' : '#4CAF50';
     }
     case 'humidity':
       return value < 30 || value > 70 ? '#ff8800' : '#4CAF50';
     case 'wind': {
-      const w = convertWindSpeed(weather.wind.speed, windUnit);
+      const w = convertWindSpeed(weather.windSpeed, windUnit);
       if (w > 15) return '#ff4444';
       if (w > 10) return '#ff8800';
       return '#4CAF50';
@@ -136,8 +134,8 @@ export const getIndicatorColor = (type, value, weather, units = {}) => {
       return '#9C27B0';
     }
     case 'dew_point': {
-      if (!value || !weather?.main?.temp) return '#999';
-      const diff = weather.main.temp - value;
+      if (!value || !weather?.temp) return '#999';
+      const diff = weather.temp - value;
       if (diff < 2) return '#2196F3';
       if (diff < 5) return '#FF9800';
       if (diff < 10) return '#4CAF50';
@@ -148,20 +146,19 @@ export const getIndicatorColor = (type, value, weather, units = {}) => {
   }
 };
 
-// Вероятность осадков
 export const getPrecipitationProbability = (weather, hourlyForecast) => {
   if (weather.pop !== undefined && weather.pop !== null) return `${Math.round(weather.pop * 100)}%`;
   if (hourlyForecast?.length > 0 && hourlyForecast[0].pop !== undefined) return `${Math.round(hourlyForecast[0].pop * 100)}%`;
 
-  const main = weather.weather[0].main.toLowerCase();
-  const desc = weather.weather[0].description.toLowerCase();
+  const main = weather.main.toLowerCase();
+  const desc = weather.description.toLowerCase();
 
   if (main.includes('thunderstorm') || desc.includes('гроза')) return '95%';
   if (main.includes('rain') || desc.includes('дождь')) return '90%';
   if (main.includes('snow') || desc.includes('снег')) return '85%';
   if (main.includes('drizzle') || desc.includes('морось')) return '70%';
   if (main.includes('clouds')) {
-    const c = weather.clouds?.all || 0;
+    const c = weather.clouds || 0;
     if (c > 80) return '30%';
     if (c > 50) return '15%';
     return '5%';

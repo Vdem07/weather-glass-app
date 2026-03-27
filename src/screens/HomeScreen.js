@@ -6,13 +6,11 @@
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, ImageBackground, StyleSheet } from 'react-native';
+import { View, ImageBackground, StyleSheet, ScrollView, Text } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
-import { ScrollView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import LottieView from 'lottie-react-native';
-import { Text } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useThemeContext } from '../theme/ThemeContext';
@@ -48,7 +46,7 @@ export default function HomeScreen({ navigation }) {
   }, []);
 
   const {
-    weather, forecast, hourlyForecast, dewPoint,
+    weather, forecast, hourlyForecast,
     loading, isOffline, loadWeatherData, refreshWeatherData,
   } = useWeatherData(settings.autoRefreshInterval, showToast);
 
@@ -59,14 +57,10 @@ export default function HomeScreen({ navigation }) {
   const textColor = isDark ? '#fff' : '#333';
   const secondaryTextColor = isDark ? '#aaa' : '#666';
 
-  // Загрузка настройки секции "Для жизни" + обновление при фокусе
   useFocusEffect(
-    useCallback(() => {
-      loadSettings();
-    }, [])
+    useCallback(() => { loadSettings(); }, [])
   );
 
-  // Обновление при возврате на экран
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', async () => {
       await loadSettings();
@@ -85,9 +79,9 @@ export default function HomeScreen({ navigation }) {
   }, [navigation]);
 
   const units = {
-    tempUnit: settings.tempUnit,
-    windUnit: settings.windUnit,
-    pressureUnit: settings.pressureUnit,
+    tempUnit:       settings.tempUnit,
+    windUnit:       settings.windUnit,
+    pressureUnit:   settings.pressureUnit,
     visibilityUnit: settings.visibilityUnit,
   };
 
@@ -98,8 +92,7 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.loadingOverlay}>
           <LottieView
             source={require('../assets/lottie/weather-welcome.json')}
-            autoPlay
-            loop
+            autoPlay loop
             style={styles.loadingAnimation}
           />
           <Text style={[styles.loadingText, { color: textColor }]}>Загрузка погоды...</Text>
@@ -137,7 +130,6 @@ export default function HomeScreen({ navigation }) {
 
           <WeatherCards
             weather={weather}
-            dewPoint={dewPoint}
             hourlyForecast={hourlyForecast}
             isDark={isDark}
             layout={settings.cardsLayout}
@@ -163,7 +155,6 @@ export default function HomeScreen({ navigation }) {
               weather={weather}
               forecast={forecast}
               hourlyForecast={hourlyForecast}
-              dewPoint={dewPoint}
               isDark={isDark}
               navigation={navigation}
               tempUnit={settings.tempUnit}
@@ -200,13 +191,9 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { flexGrow: 1, gap: 20, paddingBottom: 60 },
   loadingOverlay: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 15,
-    zIndex: 500,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    justifyContent: 'center', alignItems: 'center',
+    gap: 15, zIndex: 500, backgroundColor: 'rgba(0,0,0,0.3)',
   },
   loadingAnimation: { width: 160, height: 160 },
   loadingText: { fontSize: 16, fontWeight: '500', textAlign: 'center' },

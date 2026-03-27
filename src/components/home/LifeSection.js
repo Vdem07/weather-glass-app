@@ -4,11 +4,12 @@
  * Горизонтальный список карточек активностей "Для жизни".
  * При нажатии переходит на LifeActivityScreen с данными о погоде.
  *
+ * Работает с нормализованными данными (WeatherData).
+ *
  * Props:
- * - weather: object
- * - forecast: array
- * - hourlyForecast: array
- * - dewPoint: number | null
+ * - weather: WeatherData
+ * - forecast: DailyForecast[]
+ * - hourlyForecast: HourlyForecast[]
  * - isDark: boolean
  * - navigation: object
  * - tempUnit: string
@@ -30,7 +31,7 @@ const ACTIVITIES = [
 ];
 
 export default function LifeSection({
-  weather, forecast, hourlyForecast, dewPoint,
+  weather, forecast, hourlyForecast,
   isDark, navigation,
   tempUnit, windUnit, pressureUnit, visibilityUnit,
 }) {
@@ -56,8 +57,8 @@ export default function LifeSection({
               weather,
               forecast,
               hourlyForecast,
-              uvIndex: weather.uv_index || 0,
-              dewPoint,
+              uvIndex: weather.uvIndex || 0,
+              dewPoint: weather.dewPoint,
               tempUnit,
               windUnit,
               pressureUnit,
@@ -77,41 +78,10 @@ export default function LifeSection({
 
 const styles = StyleSheet.create({
   container: { gap: 15 },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    paddingHorizontal: 20,
-  },
-  list: {
-    paddingHorizontal: 15,
-    gap: 10,
-    alignItems: 'flex-start',
-  },
-  card: {
-    alignItems: 'center',
-    borderRadius: 16,
-    padding: 18,
-    width: 110,
-    minHeight: 130,
-    gap: 10,
-  },
-  iconWrapper: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  icon: {
-    width: 28,
-    height: 28,
-    tintColor: '#fff',
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 16,
-  },
+  title: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', paddingHorizontal: 20 },
+  list: { paddingHorizontal: 15, gap: 10, alignItems: 'flex-start' },
+  card: { alignItems: 'center', borderRadius: 16, padding: 18, width: 110, minHeight: 130, gap: 10 },
+  iconWrapper: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
+  icon: { width: 28, height: 28, tintColor: '#fff' },
+  label: { fontSize: 14, fontWeight: '600', textAlign: 'center', lineHeight: 16 },
 });

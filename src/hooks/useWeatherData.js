@@ -2,21 +2,17 @@
  * useWeatherData
  *
  * Хук для загрузки, кэширования и автообновления погодных данных.
- * Инкапсулирует всю логику работы с координатами, AsyncStorage-кэшем и API.
+ * Работает с нормализованными данными из weather.js — не знает про
+ * структуру ответа API.
  *
  * Использование:
- * const { weather, forecast, hourlyForecast, dewPoint, loading, isOffline, loadWeatherData, refreshWeatherData } = useWeatherData(autoRefreshInterval, onToast);
+ * const { weather, forecast, hourlyForecast, loading, isOffline, loadWeatherData, refreshWeatherData } = useWeatherData(autoRefreshInterval, onToast);
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
-import {
-  getCurrentWeatherWithDewPoint,
-  getDailyForecast,
-  getHourlyForecast,
-} from '../api/weather';
-import { calculateDewPoint } from '../api/weather';
+import { getCurrentWeather, getDailyForecast, getHourlyForecast } from '../api/weather';
 
 // Получить координаты из сохранённого города или геолокации
 export const getCoords = async () => {
@@ -32,13 +28,12 @@ export const getCoords = async () => {
 
 const getCacheKey = (lat, lon) => `weather_cache_${lat.toFixed(4)}_${lon.toFixed(4)}`;
 
-const saveToCache = async (lat, lon, weather, forecast, hourly, dewPoint) => {
+const saveToCache = async (lat, lon, weather, forecast, hourly) => {
   try {
     await AsyncStorage.setItem(getCacheKey(lat, lon), JSON.stringify({
       weather,
       forecast,
       hourly,
-      dewPoint: dewPoint || weather.dew_point || null,
       timestamp: Date.now(),
     }));
   } catch (error) {
@@ -80,7 +75,6 @@ export const useWeatherData = (autoRefreshInterval = '30', onToast = () => {}) =
   const [weather, setWeather] = useState(null);
   const [forecast, setForecast] = useState([]);
   const [hourlyForecast, setHourlyForecast] = useState([]);
-  const [dewPoint, setDewPoint] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
 
@@ -88,7 +82,6 @@ export const useWeatherData = (autoRefreshInterval = '30', onToast = () => {}) =
     setWeather(data.weather);
     setForecast(data.forecast);
     setHourlyForecast(data.hourly);
-    setDewPoint(data.dewPoint);
     setIsOffline(offline);
     setLoading(false);
   };
@@ -106,19 +99,14 @@ export const useWeatherData = (autoRefreshInterval = '30', onToast = () => {}) =
       }
 
       const [current, daily, hourlyRaw] = await Promise.all([
-        getCurrentWeatherWithDewPoint(lat, lon),
+        getCurrentWeather(lat, lon),
         getDailyForecast(lat, lon),
         getHourlyForecast(lat, lon),
       ]);
 
-      if (!current.dew_point && current.main?.temp && current.main?.humidity) {
-        current.dew_point = calculateDewPoint(current.main.temp, current.main.humidity);
-      }
-
-      const hourly = hourlyRaw.list.filter(item => new Date(item.dt_txt).toDateString());
-
-      await saveToCache(lat, lon, current, daily, hourly, current.dew_point);
-      applyData({ weather: current, forecast: daily, hourly, dewPoint: current.dew_point }, false);
+      // current и hourlyRaw.list уже нормализованы в weather.js
+      await saveToCache(lat, lon, current, daily, hourlyRaw.list);
+      applyData({ weather: current, forecast: daily, hourly: hourlyRaw.list }, false);
 
       if (forceOnline) onToast('Данные обновлены', 'success');
 
@@ -176,7 +164,6 @@ export const useWeatherData = (autoRefreshInterval = '30', onToast = () => {}) =
     weather,
     forecast,
     hourlyForecast,
-    dewPoint,
     loading,
     isOffline,
     loadWeatherData,

@@ -2,6 +2,7 @@
  * ActivityForecast
  *
  * Прогноз условий активности на 5 дней.
+ * Работает с нормализованными данными (DailyForecast[]).
  *
  * Props:
  * - forecast: array — [{ date, temp, weather, description, condition, conditionColor }]
@@ -37,7 +38,7 @@ export default function ActivityForecast({ forecast, isDark, tempUnit, useStatic
 
             <View style={styles.center}>
               <WeatherIcon
-                weatherMain={item.weather}
+                weatherMain={item.main}
                 weatherDescription={item.description}
                 width={40}
                 height={40}
@@ -64,28 +65,13 @@ const styles = StyleSheet.create({
   container: { gap: 15 },
   title: { fontSize: 20, fontWeight: 'bold' },
   list: { gap: 12 },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    justifyContent: 'space-between',
-  },
+  card: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, paddingVertical: 16, paddingHorizontal: 18, justifyContent: 'space-between' },
   left: { alignItems: 'flex-start', minWidth: 50 },
   date: { fontSize: 16, fontWeight: '600', textTransform: 'capitalize' },
   weekday: { fontSize: 12, marginTop: 2, textTransform: 'capitalize' },
   center: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1, justifyContent: 'center' },
   temp: { fontSize: 16, fontWeight: '600' },
   right: { alignItems: 'flex-end', minWidth: 80 },
-  badge: {
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-    borderRadius: 18,
-    minHeight: 30,
-    minWidth: 140,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  badge: { paddingHorizontal: 4, paddingVertical: 4, borderRadius: 18, minHeight: 30, minWidth: 140, alignItems: 'center', justifyContent: 'center' },
   badgeText: { color: '#fff', fontSize: 12, fontWeight: '600' },
 });
