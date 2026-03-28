@@ -3,6 +3,7 @@
  *
  * Экран предварительного просмотра виджетов погоды.
  * При ошибке загрузки показывает демо-данные.
+ * Работает с нормализованными данными (WeatherData).
  */
 
 import React, { useState, useEffect } from 'react';
@@ -12,9 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useThemeContext } from '../theme/ThemeContext';
-import { getCurrentWeather, getDailyForecast } from '../api/weather';
 import { convertTemperature, getTemperatureSymbol } from '../utils/weatherUnits';
-import { getCoords } from '../hooks/useWeatherData';
 
 import WidgetPreviewHeader from '../components/widgets/preview/WidgetPreviewHeader';
 import WidgetPreviewCard   from '../components/widgets/preview/WidgetPreviewCard';
@@ -24,15 +23,15 @@ import { SmallWeatherWidget }  from '../components/widgets/SmallWeatherWidget';
 import { MediumWeatherWidget } from '../components/widgets/MediumWeatherWidget';
 import { LargeWeatherWidget }  from '../components/widgets/LargeWeatherWidget';
 
+// Работает с нормализованным WeatherData
 const getWeatherIcon = (weather) => {
-  if (!weather?.weather?.[0]) return '❓';
-  const main = weather.weather[0].main.toLowerCase();
-  const id = weather.weather[0].id;
-  const isDay = Date.now() / 1000 >= weather.sys.sunrise && Date.now() / 1000 < weather.sys.sunset;
+  if (!weather) return '❓';
+  const main = weather.main?.toLowerCase();
+  const isDay = Date.now() / 1000 >= weather.sunrise && Date.now() / 1000 < weather.sunset;
   switch (main) {
     case 'clear':        return isDay ? '☀️' : '🌙';
-    case 'clouds':       return weather.clouds.all < 25 ? (isDay ? '🌤️' : '🌙') : weather.clouds.all < 75 ? '⛅' : '☁️';
-    case 'rain':         return id >= 511 ? '🌧️' : '🌦️';
+    case 'clouds':       return weather.clouds < 25 ? (isDay ? '🌤️' : '🌙') : weather.clouds < 75 ? '⛅' : '☁️';
+    case 'rain':         return weather.weatherId >= 511 ? '🌧️' : '🌦️';
     case 'drizzle':      return '🌦️';
     case 'thunderstorm': return '⛈️';
     case 'snow':         return '🌨️';
@@ -41,28 +40,43 @@ const getWeatherIcon = (weather) => {
   }
 };
 
+// Демо-данные в нормализованном формате
 const DEMO_DATA = {
   current: {
-    name: 'Москва',
-    main: { temp: 22, feels_like: 20, temp_min: 18, temp_max: 25, humidity: 65, pressure: 1013 },
-    weather: [{ main: 'Clear', description: 'ясно', id: 800 }],
-    wind: { speed: 3.5 },
-    clouds: { all: 10 },
-    visibility: 10000,
-    sys: { sunrise: Date.now() / 1000 - 21600, sunset: Date.now() / 1000 + 21600 },
+    name:        'Москва',
+    country:     'RU',
+    temp:        22,
+    feelsLike:   20,
+    tempMin:     18,
+    tempMax:     25,
+    humidity:    65,
+    pressure:    1013,
+    windSpeed:   3.5,
+    windDeg:     180,
+    clouds:      10,
+    visibility:  10000,
+    description: 'ясно',
+    main:        'Clear',
+    weatherId:   800,
+    sunrise:     Date.now() / 1000 - 21600,
+    sunset:      Date.now() / 1000 + 21600,
+    dt:          Date.now() / 1000,
+    uvIndex:     3,
+    dewPoint:    14,
   },
   forecast: [0, 1, 2, 3, 4].map((i) => ({
-    date: new Date(Date.now() + i * 86400000).toISOString().split('T')[0],
-    temp: [25, 23, 20, 19, 22][i],
-    nightTemp: [18, 16, 14, 13, 15][i],
-    main: ['Clear', 'Clouds', 'Rain', 'Rain', 'Clouds'][i],
+    date:        new Date(Date.now() + i * 86400000).toISOString().split('T')[0],
+    temp:        [25, 23, 20, 19, 22][i],
+    nightTemp:   [18, 16, 14, 13, 15][i],
+    main:        ['Clear', 'Clouds', 'Rain', 'Rain', 'Clouds'][i],
     description: ['ясно', 'облачно', 'дождь', 'дождь', 'облачно'][i],
+    uvIndex:     0,
   })),
 };
 
 const WIDGET_SIZES = [
-  { key: 'small',  title: 'Малый виджет (2×1)',  desc: 'Текущая погода с дневной и ночной температурой',          width: 320, height: 120, Component: SmallWeatherWidget  },
-  { key: 'medium', title: 'Средний виджет (4×2)', desc: 'Текущая погода + прогноз на 3 дня',                       width: 320, height: 240, Component: MediumWeatherWidget },
+  { key: 'small',  title: 'Малый виджет (2×1)',  desc: 'Текущая погода с дневной и ночной температурой',           width: 320, height: 120, Component: SmallWeatherWidget  },
+  { key: 'medium', title: 'Средний виджет (4×2)', desc: 'Текущая погода + прогноз на 3 дня',                        width: 320, height: 240, Component: MediumWeatherWidget },
   { key: 'large',  title: 'Большой виджет (4×3)', desc: 'Текущая погода + детальные показатели + прогноз на 3 дня', width: 320, height: 320, Component: LargeWeatherWidget  },
 ];
 
@@ -70,9 +84,9 @@ const buildWeatherData = (current, forecast, tempUnit) => ({
   current,
   forecast: forecast.slice(0, 5),
   tempUnit,
-  tempSymbol: getTemperatureSymbol(tempUnit),
-  convertTemperature: (temp) => Math.round(convertTemperature(temp, tempUnit)),
-  getWeatherDescription: (w) => w?.weather?.[0]?.description || 'Неизвестно',
+  tempSymbol:          getTemperatureSymbol(tempUnit),
+  convertTemperature:  (temp) => Math.round(convertTemperature(temp, tempUnit)),
+  getWeatherDescription: (w) => w?.description || 'Неизвестно',
   getWeatherIcon,
 });
 
@@ -80,7 +94,6 @@ export default function WidgetPreviewScreen({ navigation }) {
   const { isDark } = useThemeContext();
   const [weatherData, setWeatherData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isDemo, setIsDemo] = useState(false);
 
   const textColor = isDark ? '#fff' : '#333';
   const backgroundImage = isDark
@@ -89,19 +102,10 @@ export default function WidgetPreviewScreen({ navigation }) {
 
   const loadWeatherData = async () => {
     setLoading(true);
-    setIsDemo(false);
     try {
-      const coords = await getCoords();
-      if (!coords) throw new Error('Разрешение на геолокацию не предоставлено');
-      const [current, forecast] = await Promise.all([
-        getCurrentWeather(coords.lat, coords.lon),
-        getDailyForecast(coords.lat, coords.lon),
-      ]);
       const tempUnit = await AsyncStorage.getItem('unit') || 'metric';
-      setWeatherData(buildWeatherData(current, forecast, tempUnit));
-    } catch (err) {
-      console.error('Ошибка загрузки данных для предварительного просмотра:', err);
-      setIsDemo(true);
+      setWeatherData(buildWeatherData(DEMO_DATA.current, DEMO_DATA.forecast, tempUnit));
+    } catch {
       setWeatherData(buildWeatherData(DEMO_DATA.current, DEMO_DATA.forecast, 'metric'));
     } finally {
       setLoading(false);
@@ -141,14 +145,6 @@ export default function WidgetPreviewScreen({ navigation }) {
         <WidgetPreviewHeader isDark={isDark} navigation={navigation} onHelp={showHelp} />
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-
-          {isDemo && (
-            <View style={styles.demoCard}>
-              <Ionicons name="information-circle" size={20} color="#ff9800" />
-              <Text style={styles.demoText}>Показаны демо-данные</Text>
-            </View>
-          )}
-
           {WIDGET_SIZES.map((w) => (
             <WidgetPreviewCard
               key={w.key}
@@ -171,7 +167,6 @@ export default function WidgetPreviewScreen({ navigation }) {
           </TouchableOpacity>
 
           <WidgetInfoSection isDark={isDark} />
-
         </ScrollView>
       </BlurView>
     </ImageBackground>

@@ -1,293 +1,76 @@
 import React from 'react';
 import { FlexWidget, TextWidget } from 'react-native-android-widget';
 
-// Средний виджет - на основе малого виджета + прогноз
-export function MediumWeatherWidget(props) {
-  const { current, forecast, error, tempSymbol, convertTemperature, getWeatherDescription, getWeatherIcon } = props;
-
-  // Обработка ошибок - точно как в малом виджете
+export function MediumWeatherWidget({ current, forecast, error, tempSymbol, convertTemperature, getWeatherDescription, getWeatherIcon }) {
   if (error && !current) {
     return (
-      <FlexWidget
-        style={{
-          height: 'match_parent',
-          width: 'match_parent',
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: '#1e1e1e',
-          borderRadius: 16,
-          padding: 8,
-        }}
-      >
-        <TextWidget
-          text="⚠️"
-          style={{
-            fontSize: 24,
-            color: '#ff9800',
-            textAlign: 'center',
-          }}
-        />
-        <TextWidget
-          text="Нет данных"
-          style={{
-            fontSize: 12,
-            color: '#ffffff',
-            textAlign: 'center',
-            marginTop: 4,
-          }}
-        />
+      <FlexWidget style={{ height: 'match_parent', width: 'match_parent', justifyContent: 'center', alignItems: 'center', backgroundColor: '#1e1e1e', borderRadius: 16, padding: 8 }}>
+        <TextWidget text="⚠️" style={{ fontSize: 24, color: '#ff9800', textAlign: 'center' }} />
+        <TextWidget text="Нет данных" style={{ fontSize: 12, color: '#ffffff', textAlign: 'center', marginTop: 4 }} />
       </FlexWidget>
     );
   }
 
   if (!current) {
     return (
-      <FlexWidget
-        style={{
-          height: 'match_parent',
-          width: 'match_parent',
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: '#1e1e1e',
-          borderRadius: 16,
-        }}
-      >
-        <TextWidget
-          text="Загрузка..."
-          style={{
-            fontSize: 14,
-            color: '#ffffff',
-            textAlign: 'center',
-          }}
-        />
+      <FlexWidget style={{ height: 'match_parent', width: 'match_parent', justifyContent: 'center', alignItems: 'center', backgroundColor: '#1e1e1e', borderRadius: 16 }}>
+        <TextWidget text="Загрузка..." style={{ fontSize: 14, color: '#ffffff', textAlign: 'center' }} />
       </FlexWidget>
     );
   }
 
-  // Получаем температуры - точно как в малом виджете
-  const currentTemp = convertTemperature(current.main.temp);
-  const feelsLike = convertTemperature(current.main.feels_like);
-  
-  // Получаем данные для ночной температуры из прогноза
-  let nightTemp = null;
-  if (forecast && forecast.length > 0) {
-    nightTemp = convertTemperature(forecast[0].nightTemp || current.main.temp_min);
-  }
+  const currentTemp = convertTemperature(current.temp);
+  const feelsLike   = convertTemperature(current.feelsLike);
+  const nightTemp   = forecast?.length > 0
+    ? convertTemperature(forecast[0].nightTemp || current.tempMin)
+    : null;
 
-  // Определяем цвет фона в зависимости от времени дня - точно как в малом виджете
-  const now = Date.now() / 1000;
-  const isDay = now >= current.sys.sunrise && now < current.sys.sunset;
+  const isDay = Date.now() / 1000 >= current.sunrise && Date.now() / 1000 < current.sunset;
   const backgroundColor = isDay ? '#2196F3' : '#1a237e';
-  
+
   return (
-    <FlexWidget
-      style={{
-        height: 'match_parent',
-        width: 'match_parent',
-        backgroundColor: backgroundColor,
-        borderRadius: 16,
-        padding: 8,
-        justifyContent: 'space-around',
-        alignItems: 'center',
-      }}
-    >
-      {/* Город и описание - как в малом виджете */}
-      <TextWidget
-        text={current.name || 'Город'}
-        style={{
-          fontSize: 16,
-          fontWeight: 'bold',
-          color: '#ffffff',
-          textAlign: 'center',
-        }}
-      />
-      <TextWidget
-        text={getWeatherDescription(current)}
-        style={{
-          fontSize: 12,
-          color: '#e3f2fd',
-          textTransform: 'capitalize',
-          textAlign: 'center',
-        }}
-      />
+    <FlexWidget style={{ height: 'match_parent', width: 'match_parent', backgroundColor, borderRadius: 16, padding: 8, justifyContent: 'space-around', alignItems: 'center' }}>
+      <TextWidget text={current.name || 'Город'} style={{ fontSize: 16, fontWeight: 'bold', color: '#ffffff', textAlign: 'center' }} />
+      <TextWidget text={getWeatherDescription(current)} style={{ fontSize: 12, color: '#e3f2fd', textTransform: 'capitalize', textAlign: 'center' }} />
 
-      {/* Основная погода - как в малом виджете */}
-      <FlexWidget
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-around',
-          width: '100%',
-        }}
-      >
-        {/* Иконка и температура */}
-        <TextWidget
-          text={getWeatherIcon(current)}
-          style={{
-            fontSize: 48,
-          }}
-        />
-        <TextWidget
-          text={`${currentTemp}${tempSymbol}`}
-          style={{
-            fontSize: 36,
-            fontWeight: 'bold',
-            color: '#ffffff',
-          }}
-        />
+      <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', width: '100%' }}>
+        <TextWidget text={getWeatherIcon(current)} style={{ fontSize: 48 }} />
+        <TextWidget text={`${currentTemp}${tempSymbol}`} style={{ fontSize: 36, fontWeight: 'bold', color: '#ffffff' }} />
 
-        {/* Правая часть - дневная и ночная температуры */}
-        <FlexWidget
-          style={{
-            flexDirection: 'column',
-            alignItems: 'flex-end',
-            width: 60,
-          }}
-        >
-          <FlexWidget
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginBottom: 6,
-            }}
-          >
-            <TextWidget
-              text="☀️"
-              style={{
-                fontSize: 14,
-                marginRight: 4,
-              }}
-            />
-            <TextWidget
-              text={`${currentTemp}${tempSymbol}`}
-              style={{
-                fontSize: 16,
-                fontWeight: 'bold',
-                color: '#ffffff',
-              }}
-            />
+        <FlexWidget style={{ flexDirection: 'column', alignItems: 'flex-end', width: 60 }}>
+          <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+            <TextWidget text="☀️" style={{ fontSize: 14, marginRight: 4 }} />
+            <TextWidget text={`${currentTemp}${tempSymbol}`} style={{ fontSize: 16, fontWeight: 'bold', color: '#ffffff' }} />
           </FlexWidget>
-
-          <FlexWidget
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-          >
-            <TextWidget
-              text="🌙"
-              style={{
-                fontSize: 14,
-                marginRight: 4,
-              }}
-            />
+          <FlexWidget style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TextWidget text="🌙" style={{ fontSize: 14, marginRight: 4 }} />
             <TextWidget
               text={nightTemp !== null ? `${nightTemp}${tempSymbol}` : `${feelsLike}${tempSymbol}`}
-              style={{
-                fontSize: 16,
-                color: '#bbdefb',
-              }}
+              style={{ fontSize: 16, color: '#bbdefb' }}
             />
           </FlexWidget>
         </FlexWidget>
       </FlexWidget>
 
-      {/* Прогноз на 3 дня - горизонтальные карточки */}
-      {forecast && forecast.length > 0 && (
-        <FlexWidget
-          style={{
-            width: '100%',
-          }}
-        >
-          
-          <FlexWidget
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-evenly',
-              width: '100%',
-              paddingHorizontal: 4,
-            }}
-          >
-            {forecast.slice(0, 3).map((day, index) => {
+      {forecast?.length > 0 && (
+        <FlexWidget style={{ width: '100%' }}>
+          <FlexWidget style={{ flexDirection: 'row', justifyContent: 'space-evenly', width: '100%', paddingHorizontal: 4 }}>
+            {forecast.slice(0, 3).map((day, i) => {
               const date = new Date(day.date);
-              const dayName = index === 0 ? 'Завтра' :
-                            ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'][date.getDay()];
-              
+              const dayName = i === 0 ? 'Завтра' : ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'][date.getDay()];
               return (
-                <FlexWidget
-                  key={index}
-                  style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                    borderRadius: 10,
-                    padding: 6,
-                    alignItems: 'center',
-                    width: 90,
-                  }}
-                >
-                  <TextWidget
-                    text={dayName}
-                    style={{
-                      fontSize: 11,
-                      color: '#e3f2fd',
-                      textAlign: 'center',
-                      fontWeight: 'bold',
-                      marginBottom: 4,
-                    }}
-                  />
-                  
-                  {/* День и ночь горизонтально */}
-                  <FlexWidget
-                    style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-around',
-                      alignItems: 'center',
-                      width: '100%',
-                    }}
-                  >
-                    {/* Дневная температура слева */}
-                    <FlexWidget
-                      style={{
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <TextWidget
-                        text="☀️"
-                        style={{
-                          fontSize: 14,
-                        }}
-                      />
-                      <TextWidget
-                        text={`${convertTemperature(day.temp)}°`}
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 'bold',
-                          color: '#ffffff',
-                          textAlign: 'center',
-                        }}
-                      />
+                <FlexWidget key={i} style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: 6, alignItems: 'center', width: 90 }}>
+                  <TextWidget text={dayName} style={{ fontSize: 11, color: '#e3f2fd', textAlign: 'center', fontWeight: 'bold', marginBottom: 4 }} />
+                  <FlexWidget style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', width: '100%' }}>
+                    <FlexWidget style={{ flexDirection: 'column', alignItems: 'center' }}>
+                      <TextWidget text="☀️" style={{ fontSize: 14 }} />
+                      <TextWidget text={`${convertTemperature(day.temp)}°`} style={{ fontSize: 13, fontWeight: 'bold', color: '#ffffff', textAlign: 'center' }} />
                     </FlexWidget>
-                    
-                    {/* Ночная температура справа */}
-                    <FlexWidget
-                      style={{
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <TextWidget
-                        text="🌙"
-                        style={{
-                          fontSize: 14,
-                        }}
-                      />
+                    <FlexWidget style={{ flexDirection: 'column', alignItems: 'center' }}>
+                      <TextWidget text="🌙" style={{ fontSize: 14 }} />
                       <TextWidget
                         text={day.nightTemp ? `${convertTemperature(day.nightTemp)}°` : '--'}
-                        style={{
-                          fontSize: 13,
-                          color: '#bbdefb',
-                          textAlign: 'center',
-                        }}
+                        style={{ fontSize: 13, color: '#bbdefb', textAlign: 'center' }}
                       />
                     </FlexWidget>
                   </FlexWidget>
@@ -298,22 +81,9 @@ export function MediumWeatherWidget(props) {
         </FlexWidget>
       )}
 
-      {/* Индикатор офлайн режима */}
       {error && (
-        <FlexWidget
-          style={{
-            position: 'absolute',
-            top: 8,
-            right: 8,
-          }}
-        >
-          <TextWidget
-            text="📶"
-            style={{
-              fontSize: 12,
-              opacity: 0.7,
-            }}
-          />
+        <FlexWidget style={{ position: 'absolute', top: 8, right: 8 }}>
+          <TextWidget text="📶" style={{ fontSize: 12, opacity: 0.7 }} />
         </FlexWidget>
       )}
     </FlexWidget>
