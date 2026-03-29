@@ -168,6 +168,6 @@ const styles = StyleSheet.create({
   container: { padding: 15, paddingBottom: 90, gap: 25 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { fontSize: 16, textAlign: 'center' },
-  refreshInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12 },
-  refreshInfoText: { fontSize: 14, color: '#2196F3', fontWeight: '500' },
+  refreshInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, justifyContent: 'center' },
+  refreshInfoText: { fontSize: 14, color: '#2196F3', fontWeight: '500', textAlign: 'center' },
 });
