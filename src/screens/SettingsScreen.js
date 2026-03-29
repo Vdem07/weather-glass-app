@@ -14,10 +14,10 @@ import { useThemeContext } from '../theme/ThemeContext';
 import { getCurrentWeather } from '../api/weather';
 import { getWindSpeedFullLabel, getPressureFullLabel, getVisibilityFullLabel } from '../utils/weatherUnits';
 
-import SettingsHeader from '../components/settings/SettingsHeader';
-import SettingsDropdown from '../components/settings/SettingsDropdown';
+import SettingsHeader    from '../components/settings/SettingsHeader';
+import SettingsDropdown  from '../components/settings/SettingsDropdown';
 import SettingsLinkButton from '../components/settings/SettingsLinkButton';
-import CitySelector from '../components/settings/CitySelector';
+import CitySelector      from '../components/settings/CitySelector';
 
 import countries from 'i18n-iso-countries';
 import ruLocale from 'i18n-iso-countries/langs/ru.json';
@@ -58,8 +58,6 @@ export default function SettingsScreen({ navigation }) {
   const [cardsLayout, setCardsLayout] = useState('horizontal');
   const [useStaticIcons, setUseStaticIcons] = useState(false);
   const [showLifeSection, setShowLifeSection] = useState(true);
-
-  const [currentCity, setCurrentCity] = useState('');
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
 
@@ -84,7 +82,6 @@ export default function SettingsScreen({ navigation }) {
         AsyncStorage.getItem('useStaticIcons'),
         AsyncStorage.getItem('showLifeSection'),
       ]);
-
       setUseGeo(geo !== 'false');
       if (savedUnit) setUnit(savedUnit);
       if (savedWind) setWindUnit(savedWind);
@@ -94,53 +91,8 @@ export default function SettingsScreen({ navigation }) {
       if (savedCardsLayout) setCardsLayout(savedCardsLayout);
       setUseStaticIcons(savedIconType === 'true');
       setShowLifeSection(savedLifeSection !== 'false');
-
-      await loadCurrentCity();
     })();
   }, []);
-
-  const loadCurrentCity = async () => {
-    try {
-      const savedCity = await AsyncStorage.getItem('savedCity');
-      if (savedCity) {
-        const coords = JSON.parse(savedCity);
-        try {
-          const weather = await getCurrentWeather(coords.lat, coords.lon);
-          const name = `${weather.name}, ${countries.getName(weather.country, 'ru') || weather.country}`;
-          await AsyncStorage.setItem('savedCityName', name);
-          setCurrentCity(name);
-        } catch {
-          const saved = await AsyncStorage.getItem('savedCityName');
-          setCurrentCity(saved ? `${saved} (оффлайн)` : `${coords.lat.toFixed(4)}, ${coords.lon.toFixed(4)} (координаты)`);
-        }
-        return;
-      }
-
-      const geoName = await AsyncStorage.getItem('geoLocationName');
-      if (geoName) { setCurrentCity(`${geoName} (по геолокации)`); return; }
-
-      const { status } = await Location.getForegroundPermissionsAsync();
-      if (status !== 'granted') { setCurrentCity('Геолокация отключена в настройках устройства'); return; }
-
-      setCurrentCity('Определение местоположения...');
-      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced, timeout: 10000 });
-
-      try {
-        const weather = await getCurrentWeather(location.coords.latitude, location.coords.longitude);
-        const name = `${weather.name}, ${countries.getName(weather.country, 'ru') || weather.country}`;
-        await AsyncStorage.setItem('geoLocationName', name);
-        setCurrentCity(`${name} (по геолокации)`);
-      } catch {
-        const coords = `${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`;
-        await AsyncStorage.setItem('geoLocationName', coords);
-        setCurrentCity(`${coords} (по геолокации)`);
-      }
-    } catch {
-      const savedName = await AsyncStorage.getItem('savedCityName').catch(() => null);
-      const geoName = await AsyncStorage.getItem('geoLocationName').catch(() => null);
-      setCurrentCity(savedName ? `${savedName} (оффлайн)` : geoName ? `${geoName} (по геолокации, оффлайн)` : 'Местоположение недоступно');
-    }
-  };
 
   const handleAutoLocation = async () => {
     setIsLoadingLocation(true);
@@ -158,12 +110,10 @@ export default function SettingsScreen({ navigation }) {
         const name = `${weather.name}, ${countries.getName(weather.country, 'ru') || weather.country}`;
         await AsyncStorage.setItem('geoLocationName', name);
         await AsyncStorage.setItem('shouldRefreshWeather', 'true');
-        setCurrentCity(`${name} (по геолокации)`);
         Alert.alert('Успешно', `Местоположение определено: ${name}`, [{ text: 'ОК', onPress: () => navigation.goBack() }]);
       } catch {
         const coords = `${location.coords.latitude.toFixed(4)}, ${location.coords.longitude.toFixed(4)}`;
         await AsyncStorage.setItem('geoLocationName', coords);
-        setCurrentCity(`${coords} (по геолокации)`);
         Alert.alert('Местоположение определено', 'Координаты определены, но название города недоступно.', [{ text: 'ОК', onPress: () => navigation.goBack() }]);
       }
     } catch {
@@ -180,7 +130,6 @@ export default function SettingsScreen({ navigation }) {
       await AsyncStorage.setItem('savedCityName', name);
       await AsyncStorage.removeItem('geoLocationName');
       await AsyncStorage.setItem('shouldRefreshWeather', 'true');
-      setCurrentCity(name);
       Alert.alert('Город изменен', `Выбран город: ${name}`, [{ text: 'ОК', onPress: () => navigation.goBack() }]);
     } catch {
       Alert.alert('Ошибка', 'Не удалось выбрать город');
@@ -274,10 +223,10 @@ export default function SettingsScreen({ navigation }) {
   ];
 
   const TOGGLES = [
-    { label: 'Тёмная тема',              value: isDark,          onToggle: toggleTheme },
-    { label: 'Геолокация в поиске',       value: useGeo,          onToggle: v => { setUseGeo(v); saveSetting('useGeo', v.toString()); } },
-    { label: 'Статичные иконки погоды',   value: useStaticIcons,  onToggle: v => { setUseStaticIcons(v); saveSetting('useStaticIcons', v.toString()); } },
-    { label: 'Рекомендации для жизни',    value: showLifeSection, onToggle: v => { setShowLifeSection(v); saveSetting('showLifeSection', v.toString()); } },
+    { label: 'Тёмная тема',            value: isDark,          onToggle: toggleTheme },
+    { label: 'Геолокация в поиске',     value: useGeo,          onToggle: v => { setUseGeo(v); saveSetting('useGeo', v.toString()); } },
+    { label: 'Статичные иконки погоды', value: useStaticIcons,  onToggle: v => { setUseStaticIcons(v); saveSetting('useStaticIcons', v.toString()); } },
+    { label: 'Рекомендации для жизни',  value: showLifeSection, onToggle: v => { setShowLifeSection(v); saveSetting('showLifeSection', v.toString()); } },
   ];
 
   return (
@@ -288,7 +237,6 @@ export default function SettingsScreen({ navigation }) {
         <ScrollView style={styles.scroll} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false} bounces={false}>
 
           <CitySelector
-            currentCity={currentCity}
             isLoadingLocation={isLoadingLocation}
             isDark={isDark}
             onCitySelect={handleCitySelect}
@@ -364,7 +312,7 @@ export default function SettingsScreen({ navigation }) {
             />
           </View>
 
-          <Text style={[styles.version, { color: secondaryTextColor }]}>Версия 1.1.0</Text>
+          <Text style={[styles.version, { color: secondaryTextColor }]}>Версия 1.26.3</Text>
         </ScrollView>
       </BlurView>
     </ImageBackground>

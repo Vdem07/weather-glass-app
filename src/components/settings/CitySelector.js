@@ -2,27 +2,38 @@
  * CitySelector
  *
  * Блок выбора местоположения на экране настроек.
- * Отображает текущий город, кнопки поиска и автолокации,
- * поле поиска с результатами.
+ * Читает название текущего города из AsyncStorage — без сетевых запросов.
+ * Обновляет название после выбора города или автолокации.
  *
  * Props:
- * - currentCity: string
  * - isLoadingLocation: boolean
  * - isDark: boolean
  * - onCitySelect: (cityData) => void
  * - onAutoLocation: () => void
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, TextInput, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { searchCityByName } from '../../api/weather';
 import countries from 'i18n-iso-countries';
 import ruLocale from 'i18n-iso-countries/langs/ru.json';
 
 countries.registerLocale(ruLocale);
 
-export default function CitySelector({ currentCity, isLoadingLocation, isDark, onCitySelect, onAutoLocation }) {
+const loadCityFromStorage = async () => {
+  const savedCity = await AsyncStorage.getItem('savedCity');
+  if (savedCity) {
+    const name = await AsyncStorage.getItem('savedCityName');
+    return name || 'Местоположение недоступно';
+  }
+  const geoName = await AsyncStorage.getItem('geoLocationName');
+  return geoName ? `${geoName} (по геолокации)` : 'Геолокация не настроена';
+};
+
+export default function CitySelector({ isLoadingLocation, isDark, onCitySelect, onAutoLocation }) {
+  const [currentCity, setCurrentCity] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [results, setResults] = useState([]);
@@ -30,6 +41,10 @@ export default function CitySelector({ currentCity, isLoadingLocation, isDark, o
   const textColor = isDark ? '#fff' : '#000';
   const secondaryTextColor = isDark ? '#aaa' : '#666';
   const borderColor = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)';
+
+  useEffect(() => {
+    loadCityFromStorage().then(setCurrentCity).catch(() => setCurrentCity('Местоположение недоступно'));
+  }, []);
 
   const handleSearch = async (text) => {
     setSearchText(text);
@@ -42,10 +57,18 @@ export default function CitySelector({ currentCity, isLoadingLocation, isDark, o
   };
 
   const handleSelect = (item) => {
+    const name = `${item.local_names?.ru || item.name}${item.state ? `, ${item.state}` : ''}, ${countries.getName(item.country, 'ru') || item.country}`;
+    setCurrentCity(name);
     setSearchText('');
     setResults([]);
     setShowSearch(false);
     onCitySelect(item);
+  };
+
+  // Обновить название после автолокации
+  const handleAutoLocation = async () => {
+    await onAutoLocation();
+    loadCityFromStorage().then(setCurrentCity).catch(() => {});
   };
 
   return (
@@ -53,7 +76,7 @@ export default function CitySelector({ currentCity, isLoadingLocation, isDark, o
       <Text style={[styles.groupLabel, { color: textColor }]}>Текущее местоположение</Text>
 
       <View style={[styles.cityInfo, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)', borderColor }]}>
-        <Text style={[styles.cityText, { color: textColor }]}>{currentCity}</Text>
+        <Text style={[styles.cityText, { color: textColor }]}>{currentCity || '...'}</Text>
       </View>
 
       <View style={styles.btns}>
@@ -67,7 +90,7 @@ export default function CitySelector({ currentCity, isLoadingLocation, isDark, o
 
         <TouchableOpacity
           style={[styles.btn, { backgroundColor: isDark ? 'rgba(76,175,80,0.2)' : 'rgba(76,175,80,0.1)', opacity: isLoadingLocation ? 0.6 : 1 }]}
-          onPress={onAutoLocation}
+          onPress={handleAutoLocation}
           disabled={isLoadingLocation}
         >
           <Ionicons name={isLoadingLocation ? 'time' : 'location'} size={16} color="#4CAF50" />
