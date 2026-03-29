@@ -1,17 +1,5 @@
-/**
- * ToastNotification
- *
- * Всплывающее уведомление поверх экрана.
- * Показывается автоматически на 1 секунду при изменении visible.
- *
- * Props:
- * - message: string — текст уведомления
- * - type: 'info' | 'success' | 'warning' | 'error'
- * - visible: boolean
- */
-
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 const CONFIG = {
@@ -19,6 +7,7 @@ const CONFIG = {
   success: { color: '#4CAF50', bg: (dark) => `rgba(76, 175, 80, ${dark ? 0.2 : 0.1})`,   icon: 'checkmark-circle-outline' },
   warning: { color: '#FF6B35', bg: (dark) => `rgba(255, 107, 53, ${dark ? 0.2 : 0.1})`,  icon: 'cloud-offline-outline' },
   error:   { color: '#f44336', bg: (dark) => `rgba(244, 67, 54, ${dark ? 0.2 : 0.1})`,   icon: 'close-circle-outline' },
+  loading: { color: '#2196F3', bg: (dark) => `rgba(33, 150, 243, ${dark ? 0.2 : 0.1})`,  icon: null },
 };
 
 export default function ToastNotification({ message, type = 'info', visible, isDark }) {
@@ -28,7 +17,10 @@ export default function ToastNotification({ message, type = 'info', visible, isD
 
   return (
     <View style={[styles.container, { backgroundColor: cfg.bg(isDark) }]}>
-      <Ionicons name={cfg.icon} size={16} color={cfg.color} />
+      {type === 'loading'
+        ? <ActivityIndicator size="small" color={cfg.color} />
+        : <Ionicons name={cfg.icon} size={16} color={cfg.color} />
+      }
       <Text style={[styles.text, { color: cfg.color }]}>{message}</Text>
     </View>
   );
@@ -49,10 +41,5 @@ const styles = StyleSheet.create({
     gap: 8,
     zIndex: 1000,
   },
-  text: {
-    fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
-    flex: 1,
-  },
+  text: { fontSize: 14, fontWeight: '500', textAlign: 'center', flex: 1 },
 });

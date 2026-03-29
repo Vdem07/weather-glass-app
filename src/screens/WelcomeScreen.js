@@ -1,20 +1,17 @@
-/**
- * WelcomeScreen
- *
- * Экран первого запуска. Управляет шагами онбординга и сохранением начальных настроек.
- */
-
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ImageBackground, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ImageBackground, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import * as Location from 'expo-location';
 import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert } from 'react-native';
-import { ScrollView } from 'react-native';
 import { useThemeContext } from '../theme/ThemeContext';
+import { getCurrentWeather } from '../api/weather';
 import WelcomeStep from '../components/welcome/WelcomeStep';
-import ManualStep from '../components/welcome/ManualStep';
+import ManualStep  from '../components/welcome/ManualStep';
+
+import countries from 'i18n-iso-countries';
+import ruLocale from 'i18n-iso-countries/langs/ru.json';
+countries.registerLocale(ruLocale);
 
 export default function WelcomeScreen({ navigation }) {
   const [step, setStep] = useState('welcome');
@@ -43,8 +40,17 @@ export default function WelcomeScreen({ navigation }) {
         return;
       }
       const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const { latitude: lat, longitude: lon } = location.coords;
+
+      let geoName = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+      try {
+        const weather = await getCurrentWeather(lat, lon);
+        geoName = `${weather.name}, ${countries.getName(weather.country, 'ru') || weather.country}`;
+      } catch {}
+
       await Promise.all([
-        AsyncStorage.setItem('savedCity', JSON.stringify({ lat: location.coords.latitude, lon: location.coords.longitude })),
+        AsyncStorage.setItem('savedCity', JSON.stringify({ lat, lon })),
+        AsyncStorage.setItem('geoLocationName', geoName),
         AsyncStorage.setItem('useGeo', 'true'),
         AsyncStorage.setItem('isFirstLaunch', 'false'),
       ]);
@@ -65,8 +71,10 @@ export default function WelcomeScreen({ navigation }) {
   const handleCitySelect = async (cityData) => {
     setLoading(true);
     try {
+      const name = `${cityData.local_names?.ru || cityData.name}, ${countries.getName(cityData.country, 'ru') || cityData.country}`;
       await Promise.all([
         AsyncStorage.setItem('savedCity', JSON.stringify({ lat: cityData.lat, lon: cityData.lon })),
+        AsyncStorage.setItem('savedCityName', name),
         AsyncStorage.setItem('useGeo', 'false'),
         AsyncStorage.setItem('isFirstLaunch', 'false'),
       ]);

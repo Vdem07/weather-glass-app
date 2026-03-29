@@ -1,19 +1,3 @@
-/**
- * useWeatherData
- *
- * Хук для загрузки, кэширования и автообновления погодных данных.
- * Работает с нормализованными данными из weather.js.
- *
- * Логика автообновления:
- * - Свежий кэш — показываем сразу, в сеть не идём
- * - Устаревший кэш — показываем пока грузим, пробуем обновить
- * - Если API недоступен — откладываем обновление, кэш не трогаем
- * - Когда API становится доступным — выполняем отложенное обновление
- *
- * Использование:
- * const { weather, forecast, hourlyForecast, loading, isOffline, loadWeatherData, refreshWeatherData } = useWeatherData(autoRefreshInterval, onToast);
- */
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
@@ -32,7 +16,6 @@ export const getCoords = async () => {
   return { lat: location.coords.latitude, lon: location.coords.longitude };
 };
 
-// Пробует загрузить все данные — возвращает объект или null при любой ошибке
 const tryFetchWeather = async (lat, lon) => {
   try {
     const [current, daily, hourlyRaw] = await Promise.all([
@@ -53,9 +36,7 @@ const saveToCache = async (lat, lon, weather, forecast, hourly) => {
     await AsyncStorage.setItem(getCacheKey(lat, lon), JSON.stringify({
       weather, forecast, hourly, timestamp: Date.now(),
     }));
-  } catch (error) {
-    console.error('Ошибка сохранения в кэш:', error);
-  }
+  } catch {}
 };
 
 const loadFromCache = async (lat, lon, autoRefreshInterval) => {
@@ -67,8 +48,7 @@ const loadFromCache = async (lat, lon, autoRefreshInterval) => {
       ...parsed,
       isExpired: Date.now() - parsed.timestamp > parseInt(autoRefreshInterval) * 60 * 1000,
     };
-  } catch (error) {
-    console.error('Ошибка загрузки из кэша:', error);
+  } catch {
     return null;
   }
 };
@@ -83,9 +63,7 @@ const clearOldCache = async () => {
         await AsyncStorage.removeItem(key);
       }
     }
-  } catch (error) {
-    console.error('Ошибка очистки старого кэша:', error);
-  }
+  } catch {}
 };
 
 export const useWeatherData = (autoRefreshInterval = '30', onToast = () => {}) => {
@@ -93,9 +71,11 @@ export const useWeatherData = (autoRefreshInterval = '30', onToast = () => {}) =
   const [forecast, setForecast] = useState([]);
   const [hourlyForecast, setHourlyForecast] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
 
   const pendingRefresh = useRef(false);
+  const hasDataRef = useRef(false);
 
   const applyData = (data, offline) => {
     setWeather(data.weather);
@@ -103,29 +83,31 @@ export const useWeatherData = (autoRefreshInterval = '30', onToast = () => {}) =
     setHourlyForecast(data.hourly);
     setIsOffline(offline);
     setLoading(false);
+    setRefreshing(false);
+    hasDataRef.current = true;
   };
 
   const loadWeatherData = useCallback(async (lat, lon, forceOnline = false) => {
-    setLoading(true);
+    if (hasDataRef.current) setRefreshing(true);
+    else setLoading(true);
+
     try {
       const cached = await loadFromCache(lat, lon, autoRefreshInterval);
 
-      // Свежий кэш — показываем сразу, в сеть не идём
       if (cached && !cached.isExpired && !forceOnline) {
         applyData(cached, false);
         return;
       }
 
-      // Устаревший кэш — показываем пока грузим
       if (cached && !forceOnline) {
         applyData(cached, true);
       }
 
-      // Пробуем загрузить из сети
       const data = await tryFetchWeather(lat, lon);
       if (!data) {
         pendingRefresh.current = true;
         setLoading(false);
+        setRefreshing(false);
         onToast('Нет подключения к интернету', 'warning');
         return;
       }
@@ -133,19 +115,20 @@ export const useWeatherData = (autoRefreshInterval = '30', onToast = () => {}) =
       await saveToCache(lat, lon, data.current, data.daily, data.hourly);
       applyData({ weather: data.current, forecast: data.daily, hourly: data.hourly }, false);
       pendingRefresh.current = false;
-
       if (forceOnline) onToast('Данные обновлены', 'success');
 
-    } catch (error) {
-      console.error('Ошибка загрузки погоды:', error);
-      const cached = await loadFromCache(lat, lon, autoRefreshInterval);
-      if (cached) {
-        applyData(cached, true);
-        onToast('Офлайн режим - данные из кэша', 'warning');
-      } else {
-        setLoading(false);
-        onToast('Ошибка загрузки данных', 'error');
-      }
+    } catch {
+      try {
+        const cached = await loadFromCache(lat, lon, autoRefreshInterval);
+        if (cached) {
+          applyData(cached, true);
+          onToast('Офлайн режим - данные из кэша', 'warning');
+          return;
+        }
+      } catch {}
+      setLoading(false);
+      setRefreshing(false);
+      onToast('Ошибка загрузки данных', 'error');
     }
   }, [autoRefreshInterval]);
 
@@ -153,12 +136,13 @@ export const useWeatherData = (autoRefreshInterval = '30', onToast = () => {}) =
     try {
       const coords = await getCoords();
       if (coords) await loadWeatherData(coords.lat, coords.lon, true);
-    } catch (error) {
-      console.error('Ошибка обновления:', error);
+      else { setLoading(false); setRefreshing(false); }
+    } catch {
+      setLoading(false);
+      setRefreshing(false);
     }
   }, [loadWeatherData]);
 
-  // Инициализация
   useEffect(() => {
     (async () => {
       await clearOldCache();
@@ -166,68 +150,46 @@ export const useWeatherData = (autoRefreshInterval = '30', onToast = () => {}) =
         const coords = await getCoords();
         if (coords) await loadWeatherData(coords.lat, coords.lon);
         else setLoading(false);
-      } catch (error) {
-        console.error('Ошибка инициализации:', error);
+      } catch {
         setLoading(false);
       }
     })();
   }, []);
 
-  // Автообновление по интервалу
   useEffect(() => {
     const timer = setInterval(async () => {
       try {
         const coords = await getCoords();
         if (!coords) return;
-
         const data = await tryFetchWeather(coords.lat, coords.lon);
-        if (!data) {
-          pendingRefresh.current = true;
-          return;
-        }
-
+        if (!data) { pendingRefresh.current = true; return; }
         await saveToCache(coords.lat, coords.lon, data.current, data.daily, data.hourly);
         applyData({ weather: data.current, forecast: data.daily, hourly: data.hourly }, false);
         pendingRefresh.current = false;
         onToast('Данные обновлены', 'success');
-      } catch (error) {
-        console.error('Ошибка автообновления:', error);
-      }
+      } catch {}
     }, parseInt(autoRefreshInterval) * 60 * 1000);
 
     return () => clearInterval(timer);
   }, [autoRefreshInterval]);
 
-  // Следим за отложенным обновлением — выполняем когда API становится доступным
   useEffect(() => {
     const networkPoller = setInterval(async () => {
       if (!pendingRefresh.current) return;
       try {
         const coords = await getCoords();
         if (!coords) return;
-
         const data = await tryFetchWeather(coords.lat, coords.lon);
         if (!data) return;
-
         await saveToCache(coords.lat, coords.lon, data.current, data.daily, data.hourly);
         applyData({ weather: data.current, forecast: data.daily, hourly: data.hourly }, false);
         pendingRefresh.current = false;
         onToast('Данные обновлены', 'success');
-      } catch (error) {
-        console.error('Ошибка отложенного обновления:', error);
-      }
+      } catch {}
     }, NETWORK_POLL_INTERVAL);
 
     return () => clearInterval(networkPoller);
-  }, [loadWeatherData]);
+  }, []);
 
-  return {
-    weather,
-    forecast,
-    hourlyForecast,
-    loading,
-    isOffline,
-    loadWeatherData,
-    refreshWeatherData,
-  };
+  return { weather, forecast, hourlyForecast, loading, refreshing, isOffline, loadWeatherData, refreshWeatherData };
 };

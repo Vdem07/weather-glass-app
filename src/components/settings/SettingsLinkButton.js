@@ -47,6 +47,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     gap: 8,
   },
-  label: { fontSize: 16, fontWeight: '600', flex: 1 },
+  label: { fontSize: 16, fontWeight: '600', flex: 1, textAlign: 'center' },
   hint: { fontSize: 12, textAlign: 'center', lineHeight: 16, fontStyle: 'italic' },
 });

@@ -1,13 +1,5 @@
-/**
- * WidgetPreviewScreen
- *
- * Экран предварительного просмотра виджетов погоды.
- * При ошибке загрузки показывает демо-данные.
- * Работает с нормализованными данными (WeatherData).
- */
-
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ImageBackground, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -17,13 +9,11 @@ import { convertTemperature, getTemperatureSymbol } from '../utils/weatherUnits'
 
 import WidgetPreviewHeader from '../components/widgets/preview/WidgetPreviewHeader';
 import WidgetPreviewCard   from '../components/widgets/preview/WidgetPreviewCard';
-import WidgetInfoSection   from '../components/widgets/preview/WidgetInfoSection';
 
 import { SmallWeatherWidget }  from '../components/widgets/SmallWeatherWidget';
 import { MediumWeatherWidget } from '../components/widgets/MediumWeatherWidget';
 import { LargeWeatherWidget }  from '../components/widgets/LargeWeatherWidget';
 
-// Работает с нормализованным WeatherData
 const getWeatherIcon = (weather) => {
   if (!weather) return '❓';
   const main = weather.main?.toLowerCase();
@@ -40,29 +30,14 @@ const getWeatherIcon = (weather) => {
   }
 };
 
-// Демо-данные в нормализованном формате
 const DEMO_DATA = {
   current: {
-    name:        'Москва',
-    country:     'RU',
-    temp:        22,
-    feelsLike:   20,
-    tempMin:     18,
-    tempMax:     25,
-    humidity:    65,
-    pressure:    1013,
-    windSpeed:   3.5,
-    windDeg:     180,
-    clouds:      10,
-    visibility:  10000,
-    description: 'ясно',
-    main:        'Clear',
-    weatherId:   800,
-    sunrise:     Date.now() / 1000 - 21600,
-    sunset:      Date.now() / 1000 + 21600,
-    dt:          Date.now() / 1000,
-    uvIndex:     3,
-    dewPoint:    14,
+    name: 'Москва', country: 'RU',
+    temp: 22, feelsLike: 20, tempMin: 18, tempMax: 25,
+    humidity: 65, pressure: 1013, windSpeed: 3.5, windDeg: 180,
+    clouds: 10, visibility: 10000, description: 'ясно', main: 'Clear', weatherId: 800,
+    sunrise: Date.now() / 1000 - 21600, sunset: Date.now() / 1000 + 21600,
+    dt: Date.now() / 1000, uvIndex: 3, dewPoint: 14,
   },
   forecast: [0, 1, 2, 3, 4].map((i) => ({
     date:        new Date(Date.now() + i * 86400000).toISOString().split('T')[0],
@@ -70,7 +45,7 @@ const DEMO_DATA = {
     nightTemp:   [18, 16, 14, 13, 15][i],
     main:        ['Clear', 'Clouds', 'Rain', 'Rain', 'Clouds'][i],
     description: ['ясно', 'облачно', 'дождь', 'дождь', 'облачно'][i],
-    uvIndex:     0,
+    uvIndex: 0,
   })),
 };
 
@@ -80,12 +55,25 @@ const WIDGET_SIZES = [
   { key: 'large',  title: 'Большой виджет (4×3)', desc: 'Текущая погода + детальные показатели + прогноз на 3 дня', width: 320, height: 320, Component: LargeWeatherWidget  },
 ];
 
-const buildWeatherData = (current, forecast, tempUnit) => ({
+const getRefreshLabel = (minutes) => {
+  switch (parseInt(minutes)) {
+    case 60:   return 'каждый час';
+    case 120:  return 'каждые 2 часа';
+    case 240:  return 'каждые 4 часа';
+    case 480:  return 'каждые 8 часов';
+    case 720:  return 'каждые 12 часов';
+    case 1440: return 'каждые 24 часа';
+    default:   return 'каждые 30 минут';
+  }
+};
+
+const buildWeatherData = (current, forecast, tempUnit, updatePeriod) => ({
   current,
   forecast: forecast.slice(0, 5),
   tempUnit,
-  tempSymbol:          getTemperatureSymbol(tempUnit),
-  convertTemperature:  (temp) => Math.round(convertTemperature(temp, tempUnit)),
+  updatePeriod,
+  tempSymbol:            getTemperatureSymbol(tempUnit),
+  convertTemperature:    (temp) => Math.round(convertTemperature(temp, tempUnit)),
   getWeatherDescription: (w) => w?.description || 'Неизвестно',
   getWeatherIcon,
 });
@@ -93,6 +81,7 @@ const buildWeatherData = (current, forecast, tempUnit) => ({
 export default function WidgetPreviewScreen({ navigation }) {
   const { isDark } = useThemeContext();
   const [weatherData, setWeatherData] = useState(null);
+  const [refreshLabel, setRefreshLabel] = useState('каждые 30 минут');
   const [loading, setLoading] = useState(true);
 
   const textColor = isDark ? '#fff' : '#333';
@@ -100,19 +89,23 @@ export default function WidgetPreviewScreen({ navigation }) {
     ? require('../assets/backgrounds/bg-blobs.png')
     : require('../assets/backgrounds/bg-blobs-white.png');
 
-  const loadWeatherData = async () => {
-    setLoading(true);
-    try {
-      const tempUnit = await AsyncStorage.getItem('unit') || 'metric';
-      setWeatherData(buildWeatherData(DEMO_DATA.current, DEMO_DATA.forecast, tempUnit));
-    } catch {
-      setWeatherData(buildWeatherData(DEMO_DATA.current, DEMO_DATA.forecast, 'metric'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { loadWeatherData(); }, []);
+  useEffect(() => {
+    (async () => {
+      try {
+        const [tempUnit, widgetRefreshInterval] = await Promise.all([
+          AsyncStorage.getItem('unit'),
+          AsyncStorage.getItem('widgetRefreshInterval'),
+        ]);
+        const updatePeriod = parseInt(widgetRefreshInterval || '30');
+        setRefreshLabel(getRefreshLabel(updatePeriod));
+        setWeatherData(buildWeatherData(DEMO_DATA.current, DEMO_DATA.forecast, tempUnit || 'metric', updatePeriod));
+      } catch {
+        setWeatherData(buildWeatherData(DEMO_DATA.current, DEMO_DATA.forecast, 'metric', 30));
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
   const showHelp = () => Alert.alert(
     'Как добавить виджет',
@@ -120,7 +113,7 @@ export default function WidgetPreviewScreen({ navigation }) {
     '2. Выберите "Виджеты"\n' +
     '3. Найдите виджеты "Погода" в списке\n' +
     '4. Выберите нужный размер и перетащите на экран\n\n' +
-    'Виджеты автоматически обновляются каждые 30 минут.',
+    `Виджеты обновляются ${refreshLabel}.`,
     [{ text: 'Понятно' }]
   );
 
@@ -141,10 +134,14 @@ export default function WidgetPreviewScreen({ navigation }) {
     <ImageBackground source={backgroundImage} style={styles.background} resizeMode="cover" blurRadius={70}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <BlurView intensity={50} tint={isDark ? 'dark' : 'light'} style={styles.blurOverlay}>
-
         <WidgetPreviewHeader isDark={isDark} navigation={navigation} onHelp={showHelp} />
-
         <ScrollView style={styles.scroll} contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+
+          <View style={[styles.refreshInfo, { backgroundColor: isDark ? 'rgba(33,150,243,0.1)' : 'rgba(33,150,243,0.08)' }]}>
+            <Ionicons name="time-outline" size={16} color="#2196F3" />
+            <Text style={styles.refreshInfoText}>Виджеты обновляются {refreshLabel}</Text>
+          </View>
+
           {WIDGET_SIZES.map((w) => (
             <WidgetPreviewCard
               key={w.key}
@@ -158,15 +155,6 @@ export default function WidgetPreviewScreen({ navigation }) {
             />
           ))}
 
-          <TouchableOpacity
-            style={[styles.refreshBtn, { backgroundColor: isDark ? 'rgba(33,150,243,0.2)' : 'rgba(33,150,243,0.1)' }]}
-            onPress={loadWeatherData}
-          >
-            <Ionicons name="refresh" size={20} color="#2196F3" />
-            <Text style={[styles.refreshBtnText, { color: '#2196F3' }]}>Обновить данные</Text>
-          </TouchableOpacity>
-
-          <WidgetInfoSection isDark={isDark} />
         </ScrollView>
       </BlurView>
     </ImageBackground>
@@ -180,8 +168,6 @@ const styles = StyleSheet.create({
   container: { padding: 15, paddingBottom: 90, gap: 25 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { fontSize: 16, textAlign: 'center' },
-  demoCard: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,152,0,0.1)', gap: 10 },
-  demoText: { fontSize: 14, color: '#ff9800', flex: 1 },
-  refreshBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, borderRadius: 12, gap: 10 },
-  refreshBtnText: { fontSize: 16, fontWeight: '600' },
+  refreshInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12 },
+  refreshInfoText: { fontSize: 14, color: '#2196F3', fontWeight: '500' },
 });

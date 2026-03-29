@@ -1,10 +1,3 @@
-/**
- * HomeScreen
- *
- * Главный экран приложения. Собирает данные через хуки
- * и передаёт их в компоненты для отображения.
- */
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, ImageBackground, StyleSheet, ScrollView, Text } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -17,14 +10,14 @@ import { useThemeContext } from '../theme/ThemeContext';
 import { useWeatherData, getCoords } from '../hooks/useWeatherData';
 import { useWeatherSettings } from '../hooks/useWeatherSettings';
 
-import WeatherHeader from '../components/home/WeatherHeader';
-import WeatherMain from '../components/home/WeatherMain';
-import WeatherCards from '../components/home/WeatherCards';
-import HourlyForecast from '../components/home/HourlyForecast';
-import DailyForecast from '../components/home/DailyForecast';
-import LifeSection from '../components/home/LifeSection';
+import WeatherHeader   from '../components/home/WeatherHeader';
+import WeatherMain     from '../components/home/WeatherMain';
+import WeatherCards    from '../components/home/WeatherCards';
+import HourlyForecast  from '../components/home/HourlyForecast';
+import DailyForecast   from '../components/home/DailyForecast';
+import LifeSection     from '../components/home/LifeSection';
 import ToastNotification from '../components/home/ToastNotification';
-import LazyMapWidget from '../components/LazyMapWidget';
+import LazyMapWidget   from '../components/LazyMapWidget';
 
 import countries from 'i18n-iso-countries';
 import ruLocale from 'i18n-iso-countries/langs/ru.json';
@@ -47,7 +40,7 @@ export default function HomeScreen({ navigation }) {
 
   const {
     weather, forecast, hourlyForecast,
-    loading, isOffline, loadWeatherData, refreshWeatherData,
+    loading, refreshing, isOffline, loadWeatherData, refreshWeatherData,
   } = useWeatherData(settings.autoRefreshInterval, showToast);
 
   const backgroundImage = isDark
@@ -58,25 +51,22 @@ export default function HomeScreen({ navigation }) {
   const secondaryTextColor = isDark ? '#aaa' : '#666';
 
   useFocusEffect(
-    useCallback(() => { loadSettings(); }, [])
-  );
-
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', async () => {
-      await loadSettings();
-      try {
-        const shouldRefresh = await AsyncStorage.getItem('shouldRefreshWeather');
-        if (shouldRefresh === 'true') {
-          await AsyncStorage.removeItem('shouldRefreshWeather');
-          const coords = await getCoords();
-          if (coords) await loadWeatherData(coords.lat, coords.lon, true);
+    useCallback(() => {
+      (async () => {
+        await loadSettings();
+        try {
+          const shouldRefresh = await AsyncStorage.getItem('shouldRefreshWeather');
+          if (shouldRefresh === 'true') {
+            await AsyncStorage.removeItem('shouldRefreshWeather');
+            const coords = await getCoords();
+            if (coords) await loadWeatherData(coords.lat, coords.lon, true);
+          }
+        } catch (error) {
+          console.error('Ошибка при проверке флага обновления:', error);
         }
-      } catch (error) {
-        console.error('Ошибка при проверке флага обновления:', error);
-      }
-    });
-    return unsubscribe;
-  }, [navigation]);
+      })();
+    }, [loadSettings, loadWeatherData])
+  );
 
   const units = {
     tempUnit:       settings.tempUnit,
@@ -118,7 +108,6 @@ export default function HomeScreen({ navigation }) {
             onCitySelect={(lat, lon) => loadWeatherData(lat, lon)}
             useGeo={settings.useGeo}
           />
-
           <WeatherMain
             weather={weather}
             isDark={isDark}
@@ -127,7 +116,6 @@ export default function HomeScreen({ navigation }) {
             useStaticIcons={settings.useStaticIcons}
             onRefresh={refreshWeatherData}
           />
-
           <WeatherCards
             weather={weather}
             hourlyForecast={hourlyForecast}
@@ -135,21 +123,18 @@ export default function HomeScreen({ navigation }) {
             layout={settings.cardsLayout}
             units={units}
           />
-
           <HourlyForecast
             hourlyForecast={hourlyForecast}
             isDark={isDark}
             tempUnit={settings.tempUnit}
             useStaticIcons={settings.useStaticIcons}
           />
-
           <DailyForecast
             forecast={forecast}
             isDark={isDark}
             tempUnit={settings.tempUnit}
             useStaticIcons={settings.useStaticIcons}
           />
-
           {settings.showLifeSection && (
             <LifeSection
               weather={weather}
@@ -163,7 +148,6 @@ export default function HomeScreen({ navigation }) {
               visibilityUnit={settings.visibilityUnit}
             />
           )}
-
           <LazyMapWidget
             weather={weather}
             isDark={isDark}
@@ -175,9 +159,9 @@ export default function HomeScreen({ navigation }) {
         </ScrollView>
 
         <ToastNotification
-          message={toastMessage}
-          type={toastType}
-          visible={toastVisible}
+          message={refreshing ? 'Обновление...' : toastMessage}
+          type={refreshing ? 'loading' : toastType}
+          visible={refreshing || toastVisible}
           isDark={isDark}
         />
       </BlurView>

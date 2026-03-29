@@ -60,6 +60,7 @@ export default function SettingsScreen({ navigation }) {
   const [showLifeSection, setShowLifeSection] = useState(true);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
+  const [widgetRefreshInterval, setWidgetRefreshInterval] = useState('30');
 
   const textColor = isDark ? '#fff' : '#000';
   const secondaryTextColor = isDark ? '#aaa' : '#666';
@@ -71,7 +72,7 @@ export default function SettingsScreen({ navigation }) {
   useEffect(() => {
     (async () => {
       const [geo, savedUnit, savedWind, savedPressure, savedVisibility,
-             savedAutoRefresh, savedCardsLayout, savedIconType, savedLifeSection] = await Promise.all([
+             savedAutoRefresh, savedCardsLayout, savedIconType, savedLifeSection, savedWidgetRefresh] = await Promise.all([
         AsyncStorage.getItem('useGeo'),
         AsyncStorage.getItem('unit'),
         AsyncStorage.getItem('windUnit'),
@@ -81,6 +82,7 @@ export default function SettingsScreen({ navigation }) {
         AsyncStorage.getItem('cardsLayout'),
         AsyncStorage.getItem('useStaticIcons'),
         AsyncStorage.getItem('showLifeSection'),
+        AsyncStorage.getItem('widgetRefreshInterval'),
       ]);
       setUseGeo(geo !== 'false');
       if (savedUnit) setUnit(savedUnit);
@@ -89,6 +91,7 @@ export default function SettingsScreen({ navigation }) {
       if (savedVisibility) setVisibilityUnit(savedVisibility);
       if (savedAutoRefresh) setAutoRefreshInterval(savedAutoRefresh);
       if (savedCardsLayout) setCardsLayout(savedCardsLayout);
+      if (savedWidgetRefresh) setWidgetRefreshInterval(savedWidgetRefresh);
       setUseStaticIcons(savedIconType === 'true');
       setShowLifeSection(savedLifeSection !== 'false');
     })();
@@ -215,6 +218,12 @@ export default function SettingsScreen({ navigation }) {
       onSelect: v => { setAutoRefreshInterval(v); saveSetting('autoRefreshInterval', v); },
     },
     {
+      key: 'widgetRefresh', label: 'Автообновление виджетов',
+      current: getAutoRefreshLabel(widgetRefreshInterval),
+      items: ['30','60','120','240','480','720','1440'].map(v => ({ label: getAutoRefreshLabel(v), value: v })),
+      onSelect: v => { setWidgetRefreshInterval(v); saveSetting('widgetRefreshInterval', v); },
+    },
+    {
       key: 'cardsLayout', label: 'Отображение деталей погоды',
       current: getCardsLayoutLabel(cardsLayout),
       items: ['horizontal','grid','horizontal_grid','compact'].map(v => ({ label: getCardsLayoutLabel(v), value: v })),
@@ -329,6 +338,6 @@ const styles = StyleSheet.create({
   groupLabel: { fontSize: 16, fontWeight: '500' },
   divider: { gap: 12, paddingTop: 25, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
   resetBtn: { backgroundColor: 'rgba(244,67,54,0.1)', borderColor: '#f44336', borderWidth: 1, height: 50, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  resetBtnText: { color: '#f44336', fontSize: 16, fontWeight: '600' },
+  resetBtnText: { color: '#f44336', fontSize: 16, fontWeight: '600', justifyContent: 'center', alignItems: 'center' },
   version: { fontSize: 12, textAlign: 'center', fontStyle: 'italic' },
 });

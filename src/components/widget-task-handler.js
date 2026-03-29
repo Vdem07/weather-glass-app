@@ -72,12 +72,16 @@ const getWeatherIcon = (weather) => {
 const getWeatherDescription = (weather) => weather?.description || 'Неизвестно';
 
 const buildWidgetData = async (weatherData) => {
-  const tempUnit = await AsyncStorage.getItem('unit') || 'metric';
+  const [tempUnit, widgetRefreshInterval] = await Promise.all([
+    AsyncStorage.getItem('unit'),
+    AsyncStorage.getItem('widgetRefreshInterval'),
+  ]);
   return {
     ...weatherData,
-    tempUnit,
-    tempSymbol:         getTemperatureSymbol(tempUnit),
-    convertTemperature: (temp) => Math.round(convertTemperature(temp, tempUnit)),
+    tempUnit:           tempUnit || 'metric',
+    updatePeriod:       parseInt(widgetRefreshInterval || '30'),
+    tempSymbol:         getTemperatureSymbol(tempUnit || 'metric'),
+    convertTemperature: (temp) => Math.round(convertTemperature(temp, tempUnit || 'metric')),
     getWeatherDescription,
     getWeatherIcon,
   };
