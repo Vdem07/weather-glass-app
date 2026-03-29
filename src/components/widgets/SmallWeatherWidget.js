@@ -12,7 +12,11 @@ export function SmallWeatherWidget({ current, forecast, error, tempSymbol, conve
 
   return (
     <FlexWidget style={{ height: 'match_parent', width: 'match_parent', backgroundColor: getWidgetBackground(current), borderRadius: 16, padding: 6, justifyContent: 'space-around', alignItems: 'center' }}>
-      <TextWidget text={current.name || 'Город'} style={{ fontSize: 14, fontWeight: 'bold', color: '#ffffff', textAlign: 'center' }} />
+
+      <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+        <TextWidget text={current.name || 'Город'} style={{ fontSize: 14, fontWeight: 'bold', color: '#ffffff', flex: 1 }} />
+        <RefreshButton />
+      </FlexWidget>
 
       <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', width: '100%' }}>
         <TextWidget text={getWeatherIcon(current)} style={{ fontSize: 32 }} />
@@ -20,7 +24,6 @@ export function SmallWeatherWidget({ current, forecast, error, tempSymbol, conve
         <DayNightTemps dayTemp={dayTemp} nightTemp={nightTemp} tempSymbol={tempSymbol} iconSize={12} fontSize={14} />
       </FlexWidget>
 
-      <RefreshButton />
     </FlexWidget>
   );
 }

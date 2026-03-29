@@ -12,8 +12,11 @@ export function MediumWeatherWidget({ current, forecast, error, tempSymbol, conv
 
   return (
     <FlexWidget style={{ height: 'match_parent', width: 'match_parent', backgroundColor: getWidgetBackground(current), borderRadius: 16, padding: 8, justifyContent: 'space-around', alignItems: 'center' }}>
-      <TextWidget text={current.name || 'Город'} style={{ fontSize: 16, fontWeight: 'bold', color: '#ffffff', textAlign: 'center' }} />
-      <TextWidget text={getWeatherDescription(current)} style={{ fontSize: 12, color: '#e3f2fd', textTransform: 'capitalize', textAlign: 'center' }} />
+
+      <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+        <TextWidget text={current.name || 'Город'} style={{ fontSize: 16, fontWeight: 'bold', color: '#ffffff' }} />
+        <RefreshButton />
+      </FlexWidget>
 
       <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', width: '100%' }}>
         <TextWidget text={getWeatherIcon(current)} style={{ fontSize: 48 }} />
@@ -23,7 +26,6 @@ export function MediumWeatherWidget({ current, forecast, error, tempSymbol, conv
 
       <ForecastDays forecast={forecast} convertTemperature={convertTemperature} />
 
-      <RefreshButton />
     </FlexWidget>
   );
 }

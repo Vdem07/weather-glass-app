@@ -47,7 +47,7 @@ export function ForecastDays({ forecast, convertTemperature }) {
       {forecast.slice(0, 3).map((day, i) => {
         const dayName = i === 0 ? 'Завтра' : DAYS[new Date(day.date).getDay()];
         return (
-          <FlexWidget key={i} style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: 6, alignItems: 'center', flex: 1, marginHorizontal: 2 }}>
+          <FlexWidget key={i} style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: 6, alignItems: 'center', width: 80, marginHorizontal: 2 }}>
             <TextWidget text={dayName} style={{ fontSize: 11, color: '#e3f2fd', textAlign: 'center', fontWeight: 'bold', marginBottom: 4 }} />
             <FlexWidget style={{ flexDirection: 'row', justifyContent: 'space-around', width: '100%' }}>
               <FlexWidget style={{ alignItems: 'center' }}>
@@ -70,7 +70,7 @@ export function RefreshButton() {
   return (
     <FlexWidget
       clickAction="WIDGET_CLICK"
-      style={{ position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, padding: 4 }}
+      style={{ position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, padding: 4 }}
     >
       <TextWidget text="🔄" style={{ fontSize: 14 }} />
     </FlexWidget>
