@@ -13,7 +13,6 @@ const nameToWidget = {
   LargeWeather:  LargeWeatherWidget,
 };
 
-// Координаты из сохранённого города или геолокации
 const getCoords = async () => {
   const saved = await AsyncStorage.getItem('savedCity');
   if (saved) return JSON.parse(saved);
@@ -25,7 +24,6 @@ const getCoords = async () => {
   return { lat: location.coords.latitude, lon: location.coords.longitude };
 };
 
-// Читает данные из кэша приложения
 const loadFromCache = async () => {
   try {
     const saved = await AsyncStorage.getItem('savedCity');
@@ -42,7 +40,6 @@ const loadFromCache = async () => {
   }
 };
 
-// Пробует загрузить свежие данные из сети
 const tryFetchWeather = async () => {
   try {
     const { lat, lon } = await getCoords();
@@ -56,7 +53,6 @@ const tryFetchWeather = async () => {
   }
 };
 
-// Иконка погоды — работает с нормализованными данными
 const getWeatherIcon = (weather) => {
   if (!weather) return '❓';
   const main = weather.main?.toLowerCase();
@@ -75,37 +71,29 @@ const getWeatherIcon = (weather) => {
 
 const getWeatherDescription = (weather) => weather?.description || 'Неизвестно';
 
-// Собирает props для виджета
-const buildWidgetData = async (weatherData, isOffline = false) => {
+const buildWidgetData = async (weatherData) => {
   const tempUnit = await AsyncStorage.getItem('unit') || 'metric';
   return {
     ...weatherData,
     tempUnit,
-    tempSymbol:          getTemperatureSymbol(tempUnit),
-    convertTemperature:  (temp) => Math.round(convertTemperature(temp, tempUnit)),
+    tempSymbol:         getTemperatureSymbol(tempUnit),
+    convertTemperature: (temp) => Math.round(convertTemperature(temp, tempUnit)),
     getWeatherDescription,
     getWeatherIcon,
-    error:               isOffline ? 'Offline data' : null,
   };
 };
 
-// Основная логика: сначала кэш, потом сеть в фоне
 const renderWidgetWithData = async (Widget, renderWidget) => {
-  // 1. Сначала показываем кэш — мгновенно
   const cached = await loadFromCache();
   if (cached) {
-    const data = await buildWidgetData(cached, true);
-    renderWidget(<Widget {...data} />);
+    renderWidget(<Widget {...await buildWidgetData(cached)} />);
   }
 
-  // 2. Пробуем обновить из сети
   const fresh = await tryFetchWeather();
   if (fresh) {
-    const data = await buildWidgetData(fresh, false);
-    renderWidget(<Widget {...data} />);
+    renderWidget(<Widget {...await buildWidgetData(fresh)} />);
   }
 
-  // 3. Если нет ни кэша ни сети — показываем ошибку
   if (!cached && !fresh) {
     renderWidget(<Widget error="Failed to load data" />);
   }
@@ -119,14 +107,11 @@ export async function widgetTaskHandler(props) {
     case 'WIDGET_ADDED':
     case 'WIDGET_UPDATE':
     case 'WIDGET_RESIZED':
+    case 'WIDGET_CLICK':
       await renderWidgetWithData(Widget, props.renderWidget);
       break;
 
     case 'WIDGET_DELETED':
-    case 'WIDGET_CLICK':
-      break;
-
-    default:
       break;
   }
 }
