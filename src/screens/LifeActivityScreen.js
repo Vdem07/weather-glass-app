@@ -1,29 +1,24 @@
-/**
- * LifeActivityScreen
- *
- * Экран с детальными погодными условиями для конкретной активности.
- * Поддерживает: аллергия, вождение, рыбалка, отдых у воды, садоводство, бег.
- * Работает с нормализованными данными (WeatherData).
- */
-
 import React from 'react';
 import { ImageBackground, ScrollView, StyleSheet } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
+import { useFocusEffect } from '@react-navigation/native';
 import { useThemeContext } from '../theme/ThemeContext';
 import { useWeatherSettings } from '../hooks/useWeatherSettings';
 import { getActivityData, scoreDay, getConditionLabel } from '../utils/activityData';
 
-import ActivityHeader        from '../components/life/ActivityHeader';
-import ActivityConditions    from '../components/life/ActivityConditions';
+import ActivityHeader          from '../components/life/ActivityHeader';
+import ActivityConditions      from '../components/life/ActivityConditions';
 import ActivityRecommendations from '../components/life/ActivityRecommendations';
-import ActivityForecast      from '../components/life/ActivityForecast';
-import ActivityHourly        from '../components/life/ActivityHourly';
+import ActivityForecast        from '../components/life/ActivityForecast';
+import ActivityHourly          from '../components/life/ActivityHourly';
 
 export default function LifeActivityScreen({ navigation, route }) {
   const { activityType, title, color, weather, forecast, hourlyForecast } = route.params;
   const { isDark } = useThemeContext();
-  const { settings } = useWeatherSettings();
+  const { settings, loadSettings } = useWeatherSettings();
+
+  useFocusEffect(React.useCallback(() => { loadSettings(); }, [loadSettings]));
 
   const { tempUnit, windUnit, pressureUnit, visibilityUnit, useStaticIcons } = settings;
   const units = { tempUnit, windUnit, pressureUnit, visibilityUnit };
