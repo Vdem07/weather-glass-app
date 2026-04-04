@@ -100,6 +100,6 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center' },
   icon: { width: 160, height: 160 },
   temp: { fontSize: 60, fontWeight: 'bold', textAlign: 'center', marginTop: -10 },
-  description: { fontSize: 18, textAlign: 'center', textTransform: 'capitalize', marginTop: -10 },
+  description: { fontSize: 18, textAlign: 'center', textTransform: 'capitalize', marginTop: -10, lineHeight: 26, paddingBottom: 2 },
   updated: { fontSize: 12, textAlign: 'center', marginTop: 15 },
 });
