@@ -1,21 +1,5 @@
-/**
- * WeatherHeader
- *
- * Шапка главного экрана: кнопка настроек, поле поиска города, кнопка поиска,
- * выпадающий список результатов и название текущего города.
- *
- * Работает с нормализованными данными (WeatherData).
- *
- * Props:
- * - weather: WeatherData
- * - isDark: boolean
- * - navigation: object
- * - onCitySelect: (lat, lon) => void
- * - useGeo: boolean
- */
-
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
@@ -25,7 +9,7 @@ import ruLocale from 'i18n-iso-countries/langs/ru.json';
 
 countries.registerLocale(ruLocale);
 
-export default function WeatherHeader({ weather, isDark, navigation, onCitySelect, useGeo }) {
+export default function WeatherHeader({ weather, isDark, navigation, onCitySelect, useGeo, updateStatus }) {
   const [showSearch, setShowSearch] = useState(false);
   const [searchCity, setSearchCity] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -70,7 +54,6 @@ export default function WeatherHeader({ weather, isDark, navigation, onCitySelec
 
   return (
     <View>
-      {/* Строка поиска */}
       <View style={styles.searchRow}>
         <TouchableOpacity
           onPress={() => navigation.navigate('Settings')}
@@ -104,7 +87,6 @@ export default function WeatherHeader({ weather, isDark, navigation, onCitySelec
         </TouchableOpacity>
       </View>
 
-      {/* Результаты поиска */}
       {showSearch && searchResults.length > 0 && (
         <View style={[styles.suggestionList, { backgroundColor: isDark ? '#1e1e1e' : '#f5f5f5' }]}>
           {useGeo && (
@@ -135,13 +117,34 @@ export default function WeatherHeader({ weather, isDark, navigation, onCitySelec
         </View>
       )}
 
-      {/* Название города */}
       {weather && (
         <View style={styles.cityBlock}>
           <Text style={[styles.city, { color: textColor }]}>{weather.name}</Text>
           <Text style={[styles.country, { color: secondaryTextColor }]}>
             {countries.getName(weather.country, 'ru') || weather.country}
           </Text>
+          {updateStatus && (
+            <View style={styles.statusRow}>
+              {updateStatus === 'loading' && (
+                <>
+                  <ActivityIndicator size="small" color={secondaryTextColor} />
+                  <Text style={[styles.statusText, { color: secondaryTextColor }]}>Обновление...</Text>
+                </>
+              )}
+              {updateStatus === 'success' && (
+                <>
+                  <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                  <Text style={[styles.statusText, { color: '#4CAF50' }]}>Данные обновлены</Text>
+                </>
+              )}
+              {updateStatus === 'error' && (
+                <>
+                  <Ionicons name="cloud-offline-outline" size={16} color="#f44336" />
+                  <Text style={[styles.statusText, { color: '#f44336' }]}>Ошибка обновления</Text>
+                </>
+              )}
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -166,4 +169,6 @@ const styles = StyleSheet.create({
   cityBlock: { alignItems: 'center', paddingHorizontal: 20, marginTop: 10 },
   city: { fontSize: 28, fontWeight: 'bold', textAlign: 'center' },
   country: { fontSize: 16, textAlign: 'center', marginTop: 2 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  statusText: { fontSize: 13 },
 });

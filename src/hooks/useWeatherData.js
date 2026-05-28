@@ -8,10 +8,8 @@ const NETWORK_POLL_INTERVAL = 30000;
 export const getCoords = async () => {
   const saved = await AsyncStorage.getItem('savedCity');
   if (saved) return JSON.parse(saved);
-
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== 'granted') return null;
-
   const location = await Location.getCurrentPositionAsync({});
   return { lat: location.coords.latitude, lon: location.coords.longitude };
 };
@@ -66,22 +64,28 @@ const clearOldCache = async () => {
   } catch {}
 };
 
-export const useWeatherData = (autoRefreshInterval = '30', onToast = () => {}) => {
+export const useWeatherData = (autoRefreshInterval = '30') => {
   const [weather, setWeather] = useState(null);
   const [forecast, setForecast] = useState([]);
   const [hourlyForecast, setHourlyForecast] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [isOffline, setIsOffline] = useState(false);
+  const [refreshStatus, setRefreshStatus] = useState(null); // 'success' | 'error' | null
 
   const pendingRefresh = useRef(false);
   const hasDataRef = useRef(false);
+  const statusTimeoutRef = useRef(null);
 
-  const applyData = (data, offline) => {
+  const setStatus = (status) => {
+    setRefreshStatus(status);
+    clearTimeout(statusTimeoutRef.current);
+    statusTimeoutRef.current = setTimeout(() => setRefreshStatus(null), 2000);
+  };
+
+  const applyData = (data) => {
     setWeather(data.weather);
     setForecast(data.forecast);
     setHourlyForecast(data.hourly);
-    setIsOffline(offline);
     setLoading(false);
     setRefreshing(false);
     hasDataRef.current = true;
@@ -95,40 +99,38 @@ export const useWeatherData = (autoRefreshInterval = '30', onToast = () => {}) =
       const cached = await loadFromCache(lat, lon, autoRefreshInterval);
 
       if (cached && !cached.isExpired && !forceOnline) {
-        applyData(cached, false);
+        applyData(cached);
         return;
       }
 
-      if (cached && !forceOnline) {
-        applyData(cached, true);
-      }
+      if (cached && !forceOnline) applyData(cached);
 
       const data = await tryFetchWeather(lat, lon);
       if (!data) {
         pendingRefresh.current = true;
         setLoading(false);
         setRefreshing(false);
-        onToast('Нет подключения к интернету', 'warning');
+        if (hasDataRef.current) setStatus('error');
         return;
       }
 
       await saveToCache(lat, lon, data.current, data.daily, data.hourly);
-      applyData({ weather: data.current, forecast: data.daily, hourly: data.hourly }, false);
+      applyData({ weather: data.current, forecast: data.daily, hourly: data.hourly });
       pendingRefresh.current = false;
-      if (forceOnline) onToast('Данные обновлены', 'success');
+      if (forceOnline) setStatus('success');
 
     } catch {
       try {
         const cached = await loadFromCache(lat, lon, autoRefreshInterval);
         if (cached) {
-          applyData(cached, true);
-          onToast('Офлайн режим - данные из кэша', 'warning');
+          applyData(cached);
+          if (hasDataRef.current) setStatus('error');
           return;
         }
       } catch {}
       setLoading(false);
       setRefreshing(false);
-      onToast('Ошибка загрузки данных', 'error');
+      if (hasDataRef.current) setStatus('error');
     }
   }, [autoRefreshInterval]);
 
@@ -164,9 +166,8 @@ export const useWeatherData = (autoRefreshInterval = '30', onToast = () => {}) =
         const data = await tryFetchWeather(coords.lat, coords.lon);
         if (!data) { pendingRefresh.current = true; return; }
         await saveToCache(coords.lat, coords.lon, data.current, data.daily, data.hourly);
-        applyData({ weather: data.current, forecast: data.daily, hourly: data.hourly }, false);
+        applyData({ weather: data.current, forecast: data.daily, hourly: data.hourly });
         pendingRefresh.current = false;
-        onToast('Данные обновлены', 'success');
       } catch {}
     }, parseInt(autoRefreshInterval) * 60 * 1000);
 
@@ -182,14 +183,13 @@ export const useWeatherData = (autoRefreshInterval = '30', onToast = () => {}) =
         const data = await tryFetchWeather(coords.lat, coords.lon);
         if (!data) return;
         await saveToCache(coords.lat, coords.lon, data.current, data.daily, data.hourly);
-        applyData({ weather: data.current, forecast: data.daily, hourly: data.hourly }, false);
+        applyData({ weather: data.current, forecast: data.daily, hourly: data.hourly });
         pendingRefresh.current = false;
-        onToast('Данные обновлены', 'success');
       } catch {}
     }, NETWORK_POLL_INTERVAL);
 
     return () => clearInterval(networkPoller);
   }, []);
 
-  return { weather, forecast, hourlyForecast, loading, refreshing, isOffline, loadWeatherData, refreshWeatherData };
+  return { weather, forecast, hourlyForecast, loading, refreshing, refreshStatus, loadWeatherData, refreshWeatherData };
 };

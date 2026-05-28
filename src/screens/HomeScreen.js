@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, ImageBackground, StyleSheet, ScrollView, Text } from 'react-native';
+import { View, ImageBackground, StyleSheet, ScrollView, Text, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
@@ -16,7 +16,6 @@ import WeatherCards    from '../components/home/WeatherCards';
 import HourlyForecast  from '../components/home/HourlyForecast';
 import DailyForecast   from '../components/home/DailyForecast';
 import LifeSection     from '../components/home/LifeSection';
-import ToastNotification from '../components/home/ToastNotification';
 import LazyMapWidget   from '../components/LazyMapWidget';
 
 import countries from 'i18n-iso-countries';
@@ -40,8 +39,10 @@ export default function HomeScreen({ navigation }) {
 
   const {
     weather, forecast, hourlyForecast,
-    loading, refreshing, isOffline, loadWeatherData, refreshWeatherData,
-  } = useWeatherData(settings.autoRefreshInterval, showToast);
+    loading, refreshing, refreshStatus, loadWeatherData, refreshWeatherData,
+  } = useWeatherData(settings.autoRefreshInterval);
+
+  const updateStatus = refreshing ? 'loading' : refreshStatus;
 
   const backgroundImage = isDark
     ? require('../assets/backgrounds/bg-blobs.png')
@@ -100,6 +101,13 @@ export default function HomeScreen({ navigation }) {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           bounces={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={refreshWeatherData}
+              tintColor={isDark ? '#fff' : '#333'}
+            />
+          }
         >
           <WeatherHeader
             weather={weather}
@@ -107,14 +115,13 @@ export default function HomeScreen({ navigation }) {
             navigation={navigation}
             onCitySelect={(lat, lon) => loadWeatherData(lat, lon)}
             useGeo={settings.useGeo}
+            updateStatus={updateStatus}
           />
           <WeatherMain
             weather={weather}
             isDark={isDark}
-            isOffline={isOffline}
             tempUnit={settings.tempUnit}
             useStaticIcons={settings.useStaticIcons}
-            onRefresh={refreshWeatherData}
           />
           <WeatherCards
             weather={weather}
@@ -158,12 +165,6 @@ export default function HomeScreen({ navigation }) {
           />
         </ScrollView>
 
-        <ToastNotification
-          message={refreshing ? 'Обновление...' : toastMessage}
-          type={refreshing ? 'loading' : toastType}
-          visible={refreshing || toastVisible}
-          isDark={isDark}
-        />
       </BlurView>
     </ImageBackground>
   );
