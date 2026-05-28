@@ -331,8 +331,8 @@ export default function SettingsScreen({ navigation }) {
 const styles = StyleSheet.create({
   background: { flex: 1 },
   blurOverlay: { flex: 1 },
-  scroll: { flex: 1, marginTop: 130 },
-  container: { flexGrow: 1, paddingHorizontal: 15, paddingTop: 10, paddingBottom: 80, gap: 25 },
+  scroll: { flex: 1, marginTop: 105 },
+  container: { flexGrow: 1, paddingHorizontal: 15, paddingTop: 0, paddingBottom: 80, gap: 25 },
   settingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 },
   label: { fontSize: 16, fontWeight: '500', flex: 1 },
   groupLabel: { fontSize: 16, fontWeight: '500' },

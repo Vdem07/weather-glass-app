@@ -1,22 +1,5 @@
-/**
- * WeatherMain
- *
- * Центральный блок главного экрана: анимация погоды, температура,
- * описание, время обновления, кнопки обновления и информации.
- *
- * Работает с нормализованными данными (WeatherData).
- *
- * Props:
- * - weather: WeatherData
- * - isDark: boolean
- * - isOffline: boolean
- * - tempUnit: string
- * - useStaticIcons: boolean
- * - onRefresh: () => void
- */
-
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import WeatherIcon from '../WeatherIcon';
 import { convertTemperature, getTemperatureSymbol } from '../../utils/weatherUnits';
@@ -39,7 +22,6 @@ export default function WeatherMain({ weather, isDark, isOffline, tempUnit, useS
 
   return (
     <View style={styles.container}>
-      {/* Кнопка обновления */}
       <View style={styles.side}>
         <TouchableOpacity onPress={onRefresh} style={[styles.btn, { backgroundColor: btnBg }]}>
           <Ionicons name="refresh-outline" size={24} color={iconColor} />
@@ -47,7 +29,6 @@ export default function WeatherMain({ weather, isDark, isOffline, tempUnit, useS
         </TouchableOpacity>
       </View>
 
-      {/* Центр */}
       <View style={styles.center}>
         <WeatherIcon
           weatherMain={weather.main}
@@ -68,21 +49,7 @@ export default function WeatherMain({ weather, isDark, isOffline, tempUnit, useS
         </Text>
       </View>
 
-      {/* Кнопка информации */}
-      <View style={styles.side}>
-        <TouchableOpacity
-          onPress={() => Alert.alert(
-            'Источник данных',
-            'Данные о погоде предоставляются бесплатным API OpenWeatherMap 2.5: https://openweathermap.org/\n\n' +
-            'Индекс UV предоставляется отдельным бесплатным API WeatherAPI: https://www.weatherapi.com/\n\n' +
-            'Пожалуйста, учитывайте, что данные могут быть неточными.',
-            [{ text: 'OK', style: 'default' }]
-          )}
-          style={[styles.btn, { backgroundColor: btnBg }]}
-        >
-          <Ionicons name="information-circle-outline" size={24} color={iconColor} />
-        </TouchableOpacity>
-      </View>
+      <View style={styles.side} />
     </View>
   );
 }
