@@ -3,7 +3,7 @@
     "name": "Погода",
     "slug": "WeatherGlassApp",
     "version": "1.26.3",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
