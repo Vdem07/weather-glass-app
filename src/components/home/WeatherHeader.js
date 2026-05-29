@@ -9,7 +9,7 @@ import ruLocale from 'i18n-iso-countries/langs/ru.json';
 
 countries.registerLocale(ruLocale);
 
-export default function WeatherHeader({ weather, isDark, navigation, onCitySelect, useGeo, updateStatus }) {
+export default function WeatherHeader({ weather, isDark, navigation, onCitySelect, useGeo, updateStatus, isFavorite, onToggleFavorite }) {
   const [showSearch, setShowSearch] = useState(false);
   const [searchCity, setSearchCity] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -123,6 +123,13 @@ export default function WeatherHeader({ weather, isDark, navigation, onCitySelec
           <Text style={[styles.country, { color: secondaryTextColor }]}>
             {countries.getName(weather.country, 'ru') || weather.country}
           </Text>
+          <TouchableOpacity onPress={onToggleFavorite} style={styles.favoriteBtn} hitSlop={8}>
+            <Ionicons
+              name={isFavorite ? 'heart' : 'heart-outline'}
+              size={20}
+              color={isFavorite ? '#f44336' : secondaryTextColor}
+            />
+          </TouchableOpacity>
           {updateStatus && (
             <View style={styles.statusRow}>
               {updateStatus === 'loading' && (
@@ -169,6 +176,7 @@ const styles = StyleSheet.create({
   cityBlock: { alignItems: 'center', paddingHorizontal: 20, marginTop: 10 },
   city: { fontSize: 28, fontWeight: 'bold', textAlign: 'center' },
   country: { fontSize: 16, textAlign: 'center', marginTop: 2 },
+  favoriteBtn: { marginTop: 6 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   statusText: { fontSize: 13 },
 });

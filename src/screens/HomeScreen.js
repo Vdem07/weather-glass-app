@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, ImageBackground, StyleSheet, ScrollView, Text, RefreshControl } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import LottieView from 'lottie-react-native';
@@ -10,13 +10,13 @@ import { useThemeContext } from '../theme/ThemeContext';
 import { useWeatherData, getCoords } from '../hooks/useWeatherData';
 import { useWeatherSettings } from '../hooks/useWeatherSettings';
 
-import WeatherHeader   from '../components/home/WeatherHeader';
-import WeatherMain     from '../components/home/WeatherMain';
-import WeatherCards    from '../components/home/WeatherCards';
-import HourlyForecast  from '../components/home/HourlyForecast';
-import DailyForecast   from '../components/home/DailyForecast';
-import LifeSection     from '../components/home/LifeSection';
-import LazyMapWidget   from '../components/LazyMapWidget';
+import WeatherHeader  from '../components/home/WeatherHeader';
+import WeatherMain    from '../components/home/WeatherMain';
+import WeatherCards   from '../components/home/WeatherCards';
+import HourlyForecast from '../components/home/HourlyForecast';
+import DailyForecast  from '../components/home/DailyForecast';
+import LifeSection    from '../components/home/LifeSection';
+import LazyMapWidget  from '../components/LazyMapWidget';
 
 import countries from 'i18n-iso-countries';
 import ruLocale from 'i18n-iso-countries/langs/ru.json';
@@ -25,17 +25,8 @@ countries.registerLocale(ruLocale);
 export default function HomeScreen({ navigation }) {
   const { isDark } = useThemeContext();
   const { settings, loadSettings } = useWeatherSettings();
-
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState('info');
-  const [toastVisible, setToastVisible] = useState(false);
-
-  const showToast = useCallback((message, type = 'info') => {
-    setToastMessage(message);
-    setToastType(type);
-    setToastVisible(true);
-    setTimeout(() => setToastVisible(false), 1000);
-  }, []);
+  const route = useRoute();
+  const [isFavorite, setIsFavorite] = useState(false);
 
   const {
     weather, forecast, hourlyForecast,
@@ -44,12 +35,31 @@ export default function HomeScreen({ navigation }) {
 
   const updateStatus = refreshing ? 'loading' : refreshStatus;
 
-  const backgroundImage = isDark
-    ? require('../assets/backgrounds/bg-blobs.png')
-    : require('../assets/backgrounds/bg-blobs-white.png');
+  useEffect(() => {
+    if (route.params?.lat && route.params?.lon)
+      loadWeatherData(route.params.lat, route.params.lon);
+  }, [route.params]);
 
-  const textColor = isDark ? '#fff' : '#333';
-  const secondaryTextColor = isDark ? '#aaa' : '#666';
+  useEffect(() => {
+    if (!weather) return;
+    AsyncStorage.getItem('favoriteCities').then(data => {
+      const favs = data ? JSON.parse(data) : [];
+      setIsFavorite(favs.some(f => f.name === weather.name && f.country === weather.country));
+    });
+  }, [weather]);
+
+  const handleToggleFavorite = async () => {
+    if (!weather) return;
+    const data = await AsyncStorage.getItem('favoriteCities');
+    const favs = data ? JSON.parse(data) : [];
+    const exists = favs.some(f => f.name === weather.name && f.country === weather.country);
+    const coords = await getCoords();
+    const updated = exists
+      ? favs.filter(f => !(f.name === weather.name && f.country === weather.country))
+      : [...favs, { name: weather.name, country: weather.country, lat: coords?.lat, lon: coords?.lon }];
+    await AsyncStorage.setItem('favoriteCities', JSON.stringify(updated));
+    setIsFavorite(!exists);
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -62,12 +72,17 @@ export default function HomeScreen({ navigation }) {
             const coords = await getCoords();
             if (coords) await loadWeatherData(coords.lat, coords.lon, true);
           }
-        } catch (error) {
-          console.error('Ошибка при проверке флага обновления:', error);
-        }
+        } catch {}
       })();
     }, [loadSettings, loadWeatherData])
   );
+
+  const backgroundImage = isDark
+    ? require('../assets/backgrounds/bg-blobs.png')
+    : require('../assets/backgrounds/bg-blobs-white.png');
+
+  const textColor = isDark ? '#fff' : '#333';
+  const secondaryTextColor = isDark ? '#aaa' : '#666';
 
   const units = {
     tempUnit:       settings.tempUnit,
@@ -83,8 +98,7 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.loadingOverlay}>
           <LottieView
             source={require('../assets/lottie/weather-welcome.json')}
-            autoPlay loop
-            style={styles.loadingAnimation}
+            autoPlay loop style={styles.loadingAnimation}
           />
           <Text style={[styles.loadingText, { color: textColor }]}>Загрузка погоды...</Text>
         </View>
@@ -116,6 +130,8 @@ export default function HomeScreen({ navigation }) {
             onCitySelect={(lat, lon) => loadWeatherData(lat, lon)}
             useGeo={settings.useGeo}
             updateStatus={updateStatus}
+            isFavorite={isFavorite}
+            onToggleFavorite={handleToggleFavorite}
           />
           <WeatherMain
             weather={weather}
@@ -164,7 +180,6 @@ export default function HomeScreen({ navigation }) {
             navigation={navigation}
           />
         </ScrollView>
-
       </BlurView>
     </ImageBackground>
   );
@@ -174,7 +189,7 @@ const styles = StyleSheet.create({
   background: { flex: 1, justifyContent: 'center' },
   blurOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.2)' },
   scroll: { flex: 1 },
-  scrollContent: { flexGrow: 1, gap: 20, paddingBottom: 60 },
+  scrollContent: { flexGrow: 1, gap: 20, paddingBottom: 120 },
   loadingOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     justifyContent: 'center', alignItems: 'center',
