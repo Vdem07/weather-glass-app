@@ -19,6 +19,7 @@
     "dotenv": "^16.5.0",
     "eas-cli": "^16.7.0",
     "expo": "~53.0.27",
+    "expo-asset": "~11.1.7",
     "expo-blur": "~14.1.5",
     "expo-constants": "~17.1.8",
     "expo-dev-client": "~5.2.4",
