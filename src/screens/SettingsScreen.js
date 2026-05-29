@@ -287,6 +287,7 @@ export default function SettingsScreen({ navigation }) {
           ))}
 
           <View style={styles.divider}>
+            <Text style={[styles.groupLabel, { color: textColor }]}>Сброс приложения</Text>
             <SettingsLinkButton
               label="Сбросить приложение"
               hint="Удалить все данные и вернуться к начальному состоянию"
