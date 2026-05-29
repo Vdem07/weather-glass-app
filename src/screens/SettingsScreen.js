@@ -10,6 +10,7 @@ import { Switch } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import * as Location from 'expo-location';
+import { Ionicons } from '@expo/vector-icons';
 import { useThemeContext } from '../theme/ThemeContext';
 import { getCurrentWeather } from '../api/weather';
 import { getWindSpeedFullLabel, getPressureFullLabel, getVisibilityFullLabel } from '../utils/weatherUnits';
@@ -286,9 +287,16 @@ export default function SettingsScreen({ navigation }) {
           ))}
 
           <View style={styles.divider}>
-            <TouchableOpacity style={styles.resetBtn} onPress={handleResetApp}>
-              <Text style={styles.resetBtnText}>Сбросить приложение</Text>
-            </TouchableOpacity>
+            <SettingsLinkButton
+              label="Сбросить приложение"
+              hint="Удалить все данные и вернуться к начальному состоянию"
+              iconLeft="refresh-outline"
+              color="#f44336"
+              bgColor="rgba(244,67,54,0.1)"
+              borderColor={isDark ? 'rgba(244,67,54,0.3)' : '#f44336'}
+              onPress={handleResetApp}
+              isDark={isDark}
+            />
           </View>
 
           <View style={styles.divider}>
@@ -321,7 +329,7 @@ export default function SettingsScreen({ navigation }) {
             />
           </View>
 
-          <Text style={[styles.version, { color: secondaryTextColor }]}>Версия 1.26.3</Text>
+          <Text style={[styles.version, { color: secondaryTextColor }]}>Версия 1.26.5</Text>
         </ScrollView>
       </BlurView>
     </ImageBackground>
