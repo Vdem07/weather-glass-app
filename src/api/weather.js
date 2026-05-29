@@ -54,14 +54,23 @@ const normalizeDaily = (date, dayTemp, nightTemp, description, main, uvIndex = 0
   date, temp: dayTemp, nightTemp, description, main, uvIndex,
 });
 
+const getUVIndex = (lat, lon, rawWeather = null, date = new Date()) => {
+  if (rawWeather) return calculateUVIndex(lat, lon, rawWeather, date);
+  return calculateSimpleUV(date);
+};
+
 export const getCurrentWeather = async (lat, lon, lang = 'ru', units = 'metric') => {
   const res = await axios.get(`${BASE_URL}/weather`, {
     params: { lat, lon, appid: API_KEY, lang, units },
     timeout: TIMEOUT,
   });
-  const raw = res.data;
-  return normalizeWeather(raw, calculateUVIndex(lat, lon, raw), calculateDewPoint(raw.main.temp, raw.main.humidity));
+  const raw      = res.data;
+  const uvIndex  = getUVIndex(lat, lon, raw);
+  const dewPoint = calculateDewPoint(raw.main.temp, raw.main.humidity);
+  return normalizeWeather(raw, uvIndex, dewPoint);
 };
+
+export const getCurrentWeatherWithDewPoint = getCurrentWeather;
 
 export const getHourlyForecast = async (lat, lon, lang = 'ru', units = 'metric') => {
   const res = await axios.get(`${BASE_URL}/forecast`, {
@@ -130,14 +139,15 @@ export const getDailyForecast = async (lat, lon, lang = 'ru', units = 'metric') 
 };
 
 export const searchCityByName = async (query, limit = 5) => {
-  const res = await axios.get(`${GEO_URL}`, {
+  const res = await axios.get(GEO_URL, {
     params: { q: query, limit, lang: 'ru', appid: API_KEY },
     timeout: TIMEOUT,
   });
   return res.data;
 };
 
-export const getSunTimes = (lat, lon, date = new Date()) => {  try {
+export const getSunTimes = (lat, lon, date = new Date()) => {
+  try {
     const t = SunCalc.getTimes(date, lat, lon);
     return { sunrise: t.sunrise, sunset: t.sunset, solarNoon: t.solarNoon, goldenHour: t.goldenHour, goldenHourEnd: t.goldenHourEnd };
   } catch {
