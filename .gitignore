@@ -39,4 +39,3 @@ yarn-error.*
 .env
 
 *.apk
-src/api/weather.js
