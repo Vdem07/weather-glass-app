@@ -14,7 +14,7 @@ export const getCoords = async () => {
   return { lat: location.coords.latitude, lon: location.coords.longitude };
 };
 
-const tryFetchWeather = async (lat, lon) => {
+export const tryFetchWeather = async (lat, lon) => {
   try {
     const [current, daily, hourlyRaw] = await Promise.all([
       getCurrentWeather(lat, lon),
@@ -29,7 +29,7 @@ const tryFetchWeather = async (lat, lon) => {
 
 const getCacheKey = (lat, lon) => `weather_cache_${lat.toFixed(4)}_${lon.toFixed(4)}`;
 
-const saveToCache = async (lat, lon, weather, forecast, hourly) => {
+export const saveToCache = async (lat, lon, weather, forecast, hourly) => {
   try {
     await AsyncStorage.setItem(getCacheKey(lat, lon), JSON.stringify({
       weather, forecast, hourly, timestamp: Date.now(),
@@ -64,7 +64,7 @@ const clearOldCache = async () => {
   } catch {}
 };
 
-export const useWeatherData = (autoRefreshInterval = '30') => {
+export const useWeatherData = (autoRefreshInterval = '30', initialCoords = null) => {
   const [weather, setWeather] = useState(null);
   const [forecast, setForecast] = useState([]);
   const [hourlyForecast, setHourlyForecast] = useState([]);
@@ -149,7 +149,8 @@ export const useWeatherData = (autoRefreshInterval = '30') => {
     (async () => {
       await clearOldCache();
       try {
-        const coords = await getCoords();
+        // Если переданы начальные координаты (например из избранного) — используем их
+        const coords = initialCoords || await getCoords();
         if (coords) await loadWeatherData(coords.lat, coords.lon);
         else setLoading(false);
       } catch {

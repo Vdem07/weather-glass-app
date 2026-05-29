@@ -54,7 +54,7 @@ export default function WelcomeScreen({ navigation }) {
         AsyncStorage.setItem('useGeo', 'true'),
         AsyncStorage.setItem('isFirstLaunch', 'false'),
       ]);
-      navigation.replace('Home');
+      navigation.replace('Main');
     } catch {
       setLoading(false);
       Alert.alert(
@@ -78,7 +78,7 @@ export default function WelcomeScreen({ navigation }) {
         AsyncStorage.setItem('useGeo', 'false'),
         AsyncStorage.setItem('isFirstLaunch', 'false'),
       ]);
-      navigation.replace('Home');
+      navigation.replace('Main');
     } catch {
       setLoading(false);
       Alert.alert('Ошибка', 'Не удалось сохранить выбранный город');

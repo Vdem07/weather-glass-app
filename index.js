@@ -3,6 +3,7 @@ import { registerRootComponent } from 'expo';
 import App from './App';
 import { widgetTaskHandler } from './src/components/widget-task-handler';
 import { registerWidgetTaskHandler } from 'react-native-android-widget';
+import 'expo-font';
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
 // It also ensures that whether you load the app in Expo Go or in a native build,

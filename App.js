@@ -3,6 +3,7 @@ import Navigation from './src/navigation';
 import { SafeAreaView, StyleSheet } from 'react-native';
 import { ThemeProvider } from './src/theme/ThemeContext';
 import { Provider as PaperProvider } from 'react-native-paper';
+import 'expo-font'
 
 export default function App() {
   return (

@@ -95,7 +95,10 @@ export default function FavoritesScreen({ navigation }) {
                 <TouchableOpacity
                   key={index}
                   style={[styles.card, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}
-                  onPress={() => navigation.navigate('Home', { lat: item.lat, lon: item.lon })}
+                  onPress={async () => {
+                    await AsyncStorage.setItem('savedCity', JSON.stringify({ lat: item.lat, lon: item.lon }));
+                    navigation.navigate('Home', { lat: item.lat, lon: item.lon });
+                  }}
                   activeOpacity={0.7}
                 >
                   <View style={styles.cardLeft}>
@@ -146,8 +149,8 @@ const styles = StyleSheet.create({
   },
   btn: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
   title: { fontSize: 26, fontWeight: 'bold' },
-  list: { paddingHorizontal: 15, paddingBottom: 160, gap: 12 },
-  card: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, gap: 12 },
+  list: { paddingHorizontal: 15, paddingBottom: 120, gap: 12 },
+  card: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, gap: 12 },
   cardLeft: { flex: 1 },
   cityName: { fontSize: 18, fontWeight: '600' },
   countryName: { fontSize: 14, marginTop: 2 },

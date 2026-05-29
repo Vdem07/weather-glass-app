@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, ImageBackground, StyleSheet, ScrollView, Text, RefreshControl } from 'react-native';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
@@ -27,17 +27,29 @@ export default function HomeScreen({ navigation }) {
   const { settings, loadSettings } = useWeatherSettings();
   const route = useRoute();
   const [isFavorite, setIsFavorite] = useState(false);
+  const currentCoordsRef = useRef(null);
+
+  // Координаты из избранного имеют приоритет над savedCity
+  const initialCoords = route.params?.lat && route.params?.lon
+    ? { lat: route.params.lat, lon: route.params.lon }
+    : null;
+
+  if (initialCoords) currentCoordsRef.current = initialCoords;
 
   const {
     weather, forecast, hourlyForecast,
     loading, refreshing, refreshStatus, loadWeatherData, refreshWeatherData,
-  } = useWeatherData(settings.autoRefreshInterval);
+  } = useWeatherData(settings.autoRefreshInterval, initialCoords);
 
   const updateStatus = refreshing ? 'loading' : refreshStatus;
 
   useEffect(() => {
-    if (route.params?.lat && route.params?.lon)
-      loadWeatherData(route.params.lat, route.params.lon);
+    if (route.params?.lat && route.params?.lon) {
+      const { lat, lon } = route.params;
+      currentCoordsRef.current = { lat, lon };
+      AsyncStorage.setItem('savedCity', JSON.stringify({ lat, lon }));
+      loadWeatherData(lat, lon);
+    }
   }, [route.params]);
 
   useEffect(() => {
@@ -53,13 +65,19 @@ export default function HomeScreen({ navigation }) {
     const data = await AsyncStorage.getItem('favoriteCities');
     const favs = data ? JSON.parse(data) : [];
     const exists = favs.some(f => f.name === weather.name && f.country === weather.country);
-    const coords = await getCoords();
+    const coords = currentCoordsRef.current || await getCoords();
     const updated = exists
       ? favs.filter(f => !(f.name === weather.name && f.country === weather.country))
       : [...favs, { name: weather.name, country: weather.country, lat: coords?.lat, lon: coords?.lon }];
     await AsyncStorage.setItem('favoriteCities', JSON.stringify(updated));
     setIsFavorite(!exists);
   };
+
+  // Обновление с текущими координатами, а не из AsyncStorage
+  const handleRefresh = useCallback(async () => {
+    const coords = currentCoordsRef.current || await getCoords();
+    if (coords) await loadWeatherData(coords.lat, coords.lon, true);
+  }, [loadWeatherData]);
 
   useFocusEffect(
     useCallback(() => {
@@ -70,7 +88,10 @@ export default function HomeScreen({ navigation }) {
           if (shouldRefresh === 'true') {
             await AsyncStorage.removeItem('shouldRefreshWeather');
             const coords = await getCoords();
-            if (coords) await loadWeatherData(coords.lat, coords.lon, true);
+            if (coords) {
+              currentCoordsRef.current = coords;
+              await loadWeatherData(coords.lat, coords.lon, true);
+            }
           }
         } catch {}
       })();
@@ -118,7 +139,7 @@ export default function HomeScreen({ navigation }) {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={refreshWeatherData}
+              onRefresh={handleRefresh}
               tintColor={isDark ? '#fff' : '#333'}
             />
           }
@@ -127,7 +148,10 @@ export default function HomeScreen({ navigation }) {
             weather={weather}
             isDark={isDark}
             navigation={navigation}
-            onCitySelect={(lat, lon) => loadWeatherData(lat, lon)}
+            onCitySelect={(lat, lon) => {
+              currentCoordsRef.current = { lat, lon };
+              loadWeatherData(lat, lon);
+            }}
             useGeo={settings.useGeo}
             updateStatus={updateStatus}
             isFavorite={isFavorite}
