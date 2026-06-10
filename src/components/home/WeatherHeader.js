@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
@@ -13,6 +13,21 @@ export default function WeatherHeader({ weather, isDark, navigation, onCitySelec
   const [showSearch, setShowSearch] = useState(false);
   const [searchCity, setSearchCity] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [visibleStatus, setVisibleStatus] = useState(null);
+
+  useEffect(() => {
+    if (updateStatus) {
+      setVisibleStatus(updateStatus);
+      Animated.timing(fadeAnim, {
+        toValue: 1, duration: 250, useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(fadeAnim, {
+        toValue: 0, duration: 250, useNativeDriver: true,
+      }).start(() => setVisibleStatus(null));
+    }
+  }, [updateStatus]);
 
   const textColor = isDark ? '#fff' : '#333';
   const secondaryTextColor = isDark ? '#aaa' : '#666';
@@ -130,28 +145,30 @@ export default function WeatherHeader({ weather, isDark, navigation, onCitySelec
               color={isFavorite ? '#f44336' : secondaryTextColor}
             />
           </TouchableOpacity>
-          {updateStatus && (
-            <View style={styles.statusRow}>
-              {updateStatus === 'loading' && (
+
+          {/* Фиксированная высота чтобы не двигать контент */}
+          <View style={styles.statusContainer}>
+            <Animated.View style={[styles.statusRow, { opacity: fadeAnim }]}>
+              {visibleStatus === 'loading' && (
                 <>
                   <ActivityIndicator size="small" color={secondaryTextColor} />
                   <Text style={[styles.statusText, { color: secondaryTextColor }]}>Обновление...</Text>
                 </>
               )}
-              {updateStatus === 'success' && (
+              {visibleStatus === 'success' && (
                 <>
                   <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
                   <Text style={[styles.statusText, { color: '#4CAF50' }]}>Данные обновлены</Text>
                 </>
               )}
-              {updateStatus === 'error' && (
+              {visibleStatus === 'error' && (
                 <>
                   <Ionicons name="cloud-offline-outline" size={16} color="#f44336" />
                   <Text style={[styles.statusText, { color: '#f44336' }]}>Ошибка обновления</Text>
                 </>
               )}
-            </View>
-          )}
+            </Animated.View>
+          </View>
         </View>
       )}
     </View>
@@ -177,6 +194,7 @@ const styles = StyleSheet.create({
   city: { fontSize: 28, fontWeight: 'bold', textAlign: 'center' },
   country: { fontSize: 16, textAlign: 'center', marginTop: 2 },
   favoriteBtn: { marginTop: 6 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  statusContainer: { height: 24, justifyContent: 'center', alignItems: 'center', marginTop: 6 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   statusText: { fontSize: 13 },
 });

@@ -16,6 +16,7 @@ import WeatherCards   from '../components/home/WeatherCards';
 import HourlyForecast from '../components/home/HourlyForecast';
 import DailyForecast  from '../components/home/DailyForecast';
 import LifeSection    from '../components/home/LifeSection';
+import AiSection      from '../components/home/AiSection';
 import LazyMapWidget  from '../components/LazyMapWidget';
 
 import countries from 'i18n-iso-countries';
@@ -141,6 +142,7 @@ export default function HomeScreen({ navigation }) {
               refreshing={refreshing}
               onRefresh={handleRefresh}
               tintColor={isDark ? '#fff' : '#333'}
+              progressViewOffset={20}
             />
           }
         >
@@ -181,18 +183,21 @@ export default function HomeScreen({ navigation }) {
             isDark={isDark}
             tempUnit={settings.tempUnit}
             useStaticIcons={settings.useStaticIcons}
+            navigation={navigation}
+            hourlyForecast={hourlyForecast}
           />
           {settings.showLifeSection && (
             <LifeSection
-              weather={weather}
-              forecast={forecast}
-              hourlyForecast={hourlyForecast}
-              isDark={isDark}
-              navigation={navigation}
-              tempUnit={settings.tempUnit}
-              windUnit={settings.windUnit}
-              pressureUnit={settings.pressureUnit}
-              visibilityUnit={settings.visibilityUnit}
+              weather={weather} forecast={forecast} hourlyForecast={hourlyForecast}
+              isDark={isDark} navigation={navigation}
+              tempUnit={settings.tempUnit} windUnit={settings.windUnit}
+              pressureUnit={settings.pressureUnit} visibilityUnit={settings.visibilityUnit}
+            />
+          )}
+          {settings.showAiSection && (
+            <AiSection
+              weather={weather} isDark={isDark}
+              navigation={navigation} tempUnit={settings.tempUnit}
             />
           )}
           <LazyMapWidget

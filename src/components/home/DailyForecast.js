@@ -11,11 +11,11 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import WeatherIcon from '../WeatherIcon';
 import { convertTemperature, getTemperatureSymbol } from '../../utils/weatherUnits';
 
-export default function DailyForecast({ forecast, isDark, tempUnit, useStaticIcons }) {
+export default function DailyForecast({ forecast, isDark, tempUnit, useStaticIcons, navigation, hourlyForecast }) {
   const textColor = isDark ? '#fff' : '#333';
   const secondaryTextColor = isDark ? '#aaa' : '#666';
   const cardBg = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)';
@@ -25,7 +25,17 @@ export default function DailyForecast({ forecast, isDark, tempUnit, useStaticIco
       <Text style={[styles.title, { color: textColor }]}>Прогноз на 5 дней</Text>
       <View style={styles.list}>
         {forecast.map((item, index) => (
-          <View key={index} style={[styles.card, { backgroundColor: cardBg }]}>
+          <TouchableOpacity
+            key={index}
+            style={[styles.card, { backgroundColor: cardBg }]}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('DailyDetail', {
+              date: item.date,
+              hourlyForecast,
+              tempUnit,
+              useStaticIcons,
+            })}
+          >
             <View style={styles.left}>
               <Text style={[styles.date, { color: textColor }]}>
                 {new Date(item.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
@@ -59,7 +69,7 @@ export default function DailyForecast({ forecast, isDark, tempUnit, useStaticIco
                 </Text>
               </View>
             </View>
-          </View>
+          </TouchableOpacity>
         ))}
       </View>
     </View>

@@ -22,6 +22,7 @@ const DEFAULTS = {
   useStaticIcons:    false,
   useGeo:            true,
   showLifeSection:   true,
+  showAiSection: true,
 };
 
 export const useWeatherSettings = () => {
@@ -39,6 +40,7 @@ export const useWeatherSettings = () => {
         useStaticIcons,
         useGeo,
         showLifeSection,
+        showAiSection,
       ] = await Promise.all([
         AsyncStorage.getItem('unit'),
         AsyncStorage.getItem('windUnit'),
@@ -49,6 +51,7 @@ export const useWeatherSettings = () => {
         AsyncStorage.getItem('useStaticIcons'),
         AsyncStorage.getItem('useGeo'),
         AsyncStorage.getItem('showLifeSection'),
+        AsyncStorage.getItem('showAiSection'),
       ]);
 
       setSettings({
@@ -61,6 +64,7 @@ export const useWeatherSettings = () => {
         useStaticIcons:      useStaticIcons    === 'true',
         useGeo:              useGeo            !== 'false',
         showLifeSection:     showLifeSection   !== 'false',
+        showAiSection:       showAiSection   !== 'false',
       });
     } catch (error) {
       console.error('Ошибка загрузки настроек:', error);

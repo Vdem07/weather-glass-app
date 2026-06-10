@@ -59,6 +59,7 @@ export default function SettingsScreen({ navigation }) {
   const [cardsLayout, setCardsLayout] = useState('horizontal');
   const [useStaticIcons, setUseStaticIcons] = useState(false);
   const [showLifeSection, setShowLifeSection] = useState(true);
+  const [showAiSection, setShowAiSection] = useState(true);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [widgetRefreshInterval, setWidgetRefreshInterval] = useState('30');
@@ -73,7 +74,8 @@ export default function SettingsScreen({ navigation }) {
   useEffect(() => {
     (async () => {
       const [geo, savedUnit, savedWind, savedPressure, savedVisibility,
-             savedAutoRefresh, savedCardsLayout, savedIconType, savedLifeSection, savedWidgetRefresh] = await Promise.all([
+            savedAutoRefresh, savedCardsLayout, savedIconType,
+            savedLifeSection, savedAiSection, savedWidgetRefresh] = await Promise.all([
         AsyncStorage.getItem('useGeo'),
         AsyncStorage.getItem('unit'),
         AsyncStorage.getItem('windUnit'),
@@ -83,6 +85,7 @@ export default function SettingsScreen({ navigation }) {
         AsyncStorage.getItem('cardsLayout'),
         AsyncStorage.getItem('useStaticIcons'),
         AsyncStorage.getItem('showLifeSection'),
+        AsyncStorage.getItem('showAiSection'),
         AsyncStorage.getItem('widgetRefreshInterval'),
       ]);
       setUseGeo(geo !== 'false');
@@ -95,6 +98,7 @@ export default function SettingsScreen({ navigation }) {
       if (savedWidgetRefresh) setWidgetRefreshInterval(savedWidgetRefresh);
       setUseStaticIcons(savedIconType === 'true');
       setShowLifeSection(savedLifeSection !== 'false');
+      setShowAiSection(savedAiSection !== 'false');
     })();
   }, []);
 
@@ -236,7 +240,8 @@ export default function SettingsScreen({ navigation }) {
     { label: 'Тёмная тема',            value: isDark,          onToggle: toggleTheme },
     { label: 'Геолокация в поиске',     value: useGeo,          onToggle: v => { setUseGeo(v); saveSetting('useGeo', v.toString()); } },
     { label: 'Статичные иконки погоды', value: useStaticIcons,  onToggle: v => { setUseStaticIcons(v); saveSetting('useStaticIcons', v.toString()); } },
-    { label: 'Рекомендации для жизни',  value: showLifeSection, onToggle: v => { setShowLifeSection(v); saveSetting('showLifeSection', v.toString()); } },
+    { label: 'Рекомендации для жизни', value: showLifeSection, onToggle: v => { setShowLifeSection(v); saveSetting('showLifeSection', v.toString()); } },
+    { label: 'Раздел с ИИ',        value: showAiSection,   onToggle: v => { setShowAiSection(v);   saveSetting('showAiSection',   v.toString()); } },
   ];
 
   return (
@@ -330,7 +335,7 @@ export default function SettingsScreen({ navigation }) {
             />
           </View>
 
-          <Text style={[styles.version, { color: secondaryTextColor }]}>Версия 1.26.5</Text>
+          <Text style={[styles.version, { color: secondaryTextColor }]}>Версия 1.26.6</Text>
         </ScrollView>
       </BlurView>
     </ImageBackground>

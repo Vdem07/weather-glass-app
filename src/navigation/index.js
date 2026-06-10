@@ -8,11 +8,13 @@ import * as SplashScreen from 'expo-splash-screen';
 
 import WelcomeScreen      from '../screens/WelcomeScreen';
 import HomeScreen         from '../screens/HomeScreen';
+import DailyDetailScreen from '../screens/DailyDetailScreen';
 import FavoritesScreen    from '../screens/FavoritesScreen';
 import SettingsScreen     from '../screens/SettingsScreen';
 import LifeActivityScreen from '../screens/LifeActivityScreen';
 import WeatherMapScreen   from '../screens/WeatherMapScreen';
 import WidgetPreviewScreen from '../screens/WidgetPreviewScreen';
+import AiWeatherScreen    from '../screens/AiWeatherScreen';
 import BottomTabBar       from '../components/BottomTabBar';
 
 const Stack = createNativeStackNavigator();
@@ -62,9 +64,11 @@ export default function Navigation() {
           <Stack.Screen name="Welcome"       component={WelcomeScreen} options={{ animation: 'fade_from_bottom' }} />
           <Stack.Screen name="Main"          component={MainTabs} />
           <Stack.Screen name="Settings"      component={SettingsScreen} />
-          <Stack.Screen name="LifeActivity"  component={LifeActivityScreen} />
+          <Stack.Screen name="LifeActivity" component={LifeActivityScreen} />
+          <Stack.Screen name="AiWeather" component={AiWeatherScreen} />
           <Stack.Screen name="WeatherMap"    component={WeatherMapScreen} />
           <Stack.Screen name="WidgetPreview" component={WidgetPreviewScreen} />
+          <Stack.Screen name="DailyDetail"   component={DailyDetailScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </View>

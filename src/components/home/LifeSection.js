@@ -1,23 +1,3 @@
-/**
- * LifeSection
- *
- * Горизонтальный список карточек активностей "Для жизни".
- * При нажатии переходит на LifeActivityScreen с данными о погоде.
- *
- * Работает с нормализованными данными (WeatherData).
- *
- * Props:
- * - weather: WeatherData
- * - forecast: DailyForecast[]
- * - hourlyForecast: HourlyForecast[]
- * - isDark: boolean
- * - navigation: object
- * - tempUnit: string
- * - windUnit: string
- * - pressureUnit: string
- * - visibilityUnit: string
- */
-
 import React from 'react';
 import { View, Text, FlatList, TouchableOpacity, Image, StyleSheet } from 'react-native';
 
