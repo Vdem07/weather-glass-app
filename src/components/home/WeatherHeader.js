@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
   city: { fontSize: 28, fontWeight: 'bold', textAlign: 'center' },
   country: { fontSize: 16, textAlign: 'center', marginTop: 2 },
   favoriteBtn: { marginTop: 6 },
-  statusContainer: { height: 24, justifyContent: 'center', alignItems: 'center', marginTop: 6 },
+  statusContainer: { height: 32, justifyContent: 'center', alignItems: 'center', marginTop: 6 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   statusText: { fontSize: 13 },
 });
