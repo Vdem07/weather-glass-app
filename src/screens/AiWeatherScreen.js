@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useThemeContext } from '../theme/ThemeContext';
 import { convertTemperature, getTemperatureSymbol } from '../utils/weatherUnits';
+import { askAI } from '../api/openrouter';
 
 const TOPICS = [
   { id: 'general',   label: 'Обзор',       icon: require('../assets/icons/sun.png'),        prompt: 'Опиши текущую погоду в общих чертах и как она влияет на самочувствие людей. Коротко и по делу.' },
@@ -35,27 +36,6 @@ const buildSystemPrompt = (weather, tempUnit) => {
 - УФ-индекс: ${weather.uvIndex}
 
 Отвечай только на вопросы о погоде и её влиянии на активности людей.`;
-};
-
-const askAI = async (systemPrompt, messages) => {
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.EXPO_PUBLIC_OPENROUTER_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'openrouter/auto',
-      max_tokens: 400,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...messages,
-      ],
-    }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return data.choices?.[0]?.message?.content || 'Не удалось получить ответ.';
 };
 
 export default function AiWeatherScreen() {
